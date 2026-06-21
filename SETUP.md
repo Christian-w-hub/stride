@@ -1,155 +1,131 @@
-# STRIDE — setup
+# STRIDE — setup (final architecture)
 
-A glanceable fitness dashboard for your iPad. You type nothing. Apple Shortcuts are the
-native background engine (geofences, Wi-Fi, charging, calendar, Health, auto-workouts —
-free, no app to install, no 7-day rebuild). The web page is just the display.
+A web dashboard that lives always-on on your iPad **and** iPhone, fed automatically
+from Apple Health. No app install, no developer account, no 7-day expiry, free.
 
----
-
-## The model
-
-- **iPhone is the sensor, iPad is the screen.** Only the iPhone can read Apple Health,
-  and Health reads only while the phone is unlocked.
-- The dashboard takes today's numbers from the URL (`?steps=...&dist=...`) and remembers
-  each day in the browser for streaks, trends, and the movement clock. No server holds
-  your data; if you host on a **private** GitHub repo the page itself contains no data,
-  only the numbers passed in the link.
-- **Auto and reliable:** steps, distance, hourly movement, gym (Wi-Fi), walks (geofence
-  auto-workout). **Estimated, labelled as such:** sleep (charging + Do Not Disturb).
-
----
-
-## Goals (edit first)
-
-`index.html`, near the bottom `<script>`:
-```js
-const GOAL = { gym:5, steps:8000, sleep:7.5, walkSteps:7000 };
+```
+iPhone ─ "Stride Sync" Shortcut (on unlock + timer) ─► reads Apple Health
+                                                       (steps, distance, sleep, walk)
+                                                              │  PUT
+                                                        Firebase Realtime DB (free)
+iPad + iPhone ─ dashboard (web) ◄── polls every 60s ──────────┘   updates itself, no touch
 ```
 
----
-
-## Step 1 — host the dashboard
-
-Ask me to publish it to a **private GitHub Pages** repo → you get a stable link
-(your **DASH_URL**). The link is what the Shortcut opens and what you add to the home
-screen. (Local-file hosting works too but makes passing numbers fiddly — go hosted.)
+You never tell it anything. The phone reads Health and pushes; both screens poll and
+refresh themselves seamlessly.
 
 ---
 
-## Step 2 — the sync shortcut (Health → dashboard)
+## Step 1 — open the dashboard on both devices (2 min)
 
-New Shortcut named **Stride**. Actions in order:
+It's one hosted page — it works in any browser, on any device. On **both** your iPhone
+and iPad:
+1. Open **https://christian-w-hub.github.io/stride/** in Safari.
+2. Share button → **Add to Home Screen**. It installs with the Stride icon and opens
+   full-screen like an app. (That's your "shortcut to check it" — just tap the icon.)
 
-1. **Find Health Samples** → Steps, today → **Calculate Statistics → Sum** → save as `steps`.
-2. **Find Health Samples** → Walking + Running Distance, today → **Sum** → save as `dist`.
-3. **Hourly buckets** (powers the movement clock): **Repeat 24 times** →
-   inside: **Calculate** start = midnight + (Index−1)h, end +1h → **Find Health Samples →
-   Steps** in that range → **Sum** → **Add to Variable** `hourly`. After the loop,
-   **Combine Text** `hourly` with comma separator.
-4. **Get File** from iCloud `stride-state.txt` (written by Steps 4–6 below: holds
-   `gym`, `sleep`, `walk`). **Get Dictionary** from it.
-5. **Text** → build the URL:
+History/streaks now live in Firebase (Step 2), so both devices show identical numbers.
+
+---
+
+## Step 2 — the free always-on store (Firebase, ~10 min, one-time)
+
+This is the only account you need, and it's free (Spark plan — verified: it does **not**
+sleep or pause, unlike most free tiers).
+
+1. Go to **console.firebase.google.com** → **Create project** (any name, e.g. "stride").
+   Skip Google Analytics.
+2. Left menu → **Build → Realtime Database** → **Create Database** → pick a location →
+   start in **locked mode**.
+3. Open the **Rules** tab, paste this, **Publish**:
+   ```json
+   { "rules": {
+       "stride": { ".read": true, ".write": "auth !== null" }
+   } }
    ```
-   DASH_URL?steps=[steps]&dist=[dist]&sleep=[sleep]&gym=[gym]&walk=[walk]&hours=[hourly]
+   (Public read = the iPad/iPhone pages hold **no secret**. Write needs the key your
+   Shortcut carries — see below. Only your activity numbers are stored, never location.)
+4. Copy your database URL from the top of the Data tab — it looks like
+   `https://stride-xxxx-default-rtdb.firebaseio.com`.
+5. **Write key:** Project Settings (gear) → **Service accounts → Database secrets** →
+   reveal/copy the secret. (If that section is hidden on your project, tell me and we'll
+   switch to a token rule — 1-minute change.)
+6. **Tell me the database URL**, or paste it yourself into `index.html`:
+   ```js
+   const FIREBASE_URL = 'https://stride-xxxx-default-rtdb.firebaseio.com';
    ```
-6. **Open URLs** → the Text. Add to Home Screen (share icon → Add to Home Screen).
-
-Also run this on a **time automation** a few times a day (e.g. every 3h, "Run
-Immediately") so the synced numbers and the iCloud relay stay current.
+   then it's live. (I'll redeploy.)
 
 ---
 
-## Step 3 — walks, fully automatic (geofence auto-workout)
+## Step 3 — the "Stride Sync" Shortcut (reads Health → pushes) (~15 min, I'll guide)
 
-This is the accurate, no-false-nag walk detection.
+New Shortcut named **Stride Sync**. Actions:
 
-- **Automation → Arrive/Leave → Leave [home address]**, Run Immediately →
-  **Start Workout (Outdoor Walk)**. Leaving home on foot now records a real GPS walk
-  (exact distance + route saved in Apple Fitness, zero taps).
-- **Automation → Arrive [home address]** → **End Workout**, then read the workout
-  distance; if it's over ~0.8 km, set `walk = 1` in `stride-state.txt`.
-- A **Monday 4 AM** time automation resets `walk = 0` for the new day (and daily at
-  midnight). Or simpler: store the walk's date and let the dashboard treat a stale date
-  as "open".
+1. **Find Health Samples** → Steps, today → **Calculate Statistics → Sum** → save `steps`.
+2. **Find Health Samples** → Walking + Running Distance, today → **Sum** → save `dist` (km).
+3. **Find Health Samples** → Sleep Analysis, last night → hours → save `sleep`.
+4. **Hourly buckets** (for the movement clock): **Repeat 24** → each hour: Find Steps in
+   that hour → Sum → Add to Variable `hourly`; after the loop, **Combine** with commas.
+5. **Walk** = `dist ≥ 1.2` → `1`, else `0` (an **If**). (Auto — a real walk adds >1km, a
+   bin trip doesn't. No telling it anything.)
+6. **Get Contents of URL** (PUT) → `DB_URL/stride/days/<TODAY yyyy-MM-dd>.json?auth=KEY`
+   → Request Body (JSON): `{steps, dist, sleep, walk, hours:[…]}`.
+7. **Get Contents of URL** (PUT) → `DB_URL/stride/updated.json?auth=KEY` → Body: current
+   time as a number.
 
-The dashboard's walk ring fills from `walk`, and distance shows from Health regardless.
-
----
-
-## Step 4 — gym sessions, automatic (Wi-Fi)
-
-Your pier gym has Wi-Fi you join — and **a VPN does not hide the network name**, so this
-is reliable.
-
-- **Automation → Wi-Fi → Connects to [gym network]**, Run Immediately → read `gym`
-  counter from `stride-state.txt`, **+1**, write back. (Add a "once per day" guard:
-  only increment if the last gym date isn't today.)
-- **Automation → Monday 4 AM** → reset `gym = 0` for the new week.
-
-(If you'd rather not rely on Wi-Fi, swap the trigger for **Arrive [gym address]**.)
+Then: **Automation → When iPhone is Unlocked → Run Immediately** (turn off Ask Before
+Running) → run Stride Sync. Add a couple of **Time of Day** runs too (e.g. 9am, 2pm, 7pm)
+as backup. Now it pushes fresh data many times a day, hands-off.
 
 ---
 
-## Step 5 — sleep (charging AND Do Not Disturb)
+## Step 4 — gym (the one bit that needs a trigger)
 
-Your two-signal logic — plugged in *and* not using the phone:
-
-- **Automation → Do Not Disturb → On** → if **currently charging** (check Battery State),
-  save the time as `sleepStart` in `stride-state.txt`. (Requiring both avoids a late-night
-  top-up charge counting as sleep.)
-- **Automation → Do Not Disturb → Off** (your morning) → compute hours since `sleepStart`,
-  save as `sleep`.
-
-If DND isn't on a schedule, set it to turn on/off around your usual nights — it stays your
-real "alerts off" window, not an invented number. The dashboard labels this "estimated".
+iPhone can't sense a gym session, so pick one:
+- **Auto (recommended):** Automation → **Wi-Fi → Connects to [your gym network]**, Run
+  Immediately → bump a stored count and PUT `DB_URL/stride/gymWeek.json?auth=KEY` =
+  `{week:"<this Monday>", count:N}`. (A VPN does **not** hide the Wi-Fi name, so this
+  works for you.) Add a **Monday 4am** automation to reset count to 0.
+- **One-tap fallback:** a "Log gym" home-screen shortcut you tap on arrival (the most
+  reliable signal of all, if you don't mind one tap).
 
 ---
 
-## Step 6 — smart reminders (calendar + location aware)
+## Step 5 — the reminders (native alerts, on-brand)
 
-Two or three time automations through your flexible afternoon (e.g. **1:00**, **3:30**,
-**5:30 PM**), each "Run Immediately". For each, the actions:
+These are **real iOS notifications** (Shortcuts posts them natively — banner + lock
+screen), and because your home-screen icon is the Stride icon, they read as a real app.
 
-1. **If** `walk` (from `stride-state.txt`) is already 1 → **Stop** (silent — you've walked).
-2. **Get Current Location** → **Get Distance** from home → **If** more than ~300 m →
-   **Stop** (you're already out moving; no mid-walk nag).
-3. **Find Calendar Events** → today, happening now → **If** any → **Stop** (you're in a
-   meeting).
-4. Otherwise → **Show Notification**: *"Walk's still open. Good window now?"*
+Make 2–3 **Time of Day** automations through your flexible afternoon (e.g. **1:00**,
+**3:30**, **5:30 PM**), each Run Immediately:
+1. **Get Contents of URL** (GET) `DB_URL/stride/days/<TODAY>.json` → if `walk` is already
+   `1` → **Stop** (silent — you've walked).
+2. Otherwise → **Show Notification**, title **"Stride"**, body in the dashboard's voice:
+   e.g. *"Walk's still open. Good window now?"* / *"A walk fills the ring."*
 
-Calm, same-day only, no countdowns or guilt — that restraint is deliberate. The dashboard
-shows your learned window ("good window today: ~2pm") to guide timing; the nudges just go
-quiet once you've walked, are out, or are busy.
-
-> Honest limit: a Shortcut fires at fixed times — it can't auto-move to your learned
-> window. Once the movement clock reveals your pattern, set the three times to bracket it.
+> Honest note on "matching the design": iOS controls the notification's look (icon +
+> title + text) — no custom glass styling is possible for *any* non-App-Store app. So we
+> make it feel on-brand via the **Stride icon** and copy that matches the dashboard's
+> status-line voice. That's as native + on-brand as it gets without the App Store.
 
 ---
 
-## Step 7 — showing it on the iPad
+## What's already done (no action)
 
-Because Health only reads on the iPhone, Step 2's sync also does **Save File →
-iCloud Drive** (`stride-feed.txt` = the query string). Then on the **iPad**: a shortcut
-**Get File** (`stride-feed.txt`) → **Text** `DASH_URL?` + contents → **Open URLs** → Add
-to Home Screen. The iPad icon opens the latest synced day. (History/streaks live in the
-iPad's browser, so open it there daily. The gym/walk/sleep state in iCloud is the backup.)
-
----
+- Dashboard built, hosted, always-on; knows the date, resets the week, survives running
+  for weeks; click-to-expand cards; Lucide icons; branded home-screen icon.
+- **Live-sync wired** — once `FIREBASE_URL` is set, both devices poll every 60s and
+  refresh **seamlessly** (no flash, no re-animation).
+- **Background video slowed to half speed** — calmer, more ambient/breathing.
 
 ## Honest caveats
+- Sleep is estimated (charging + Do Not Disturb window), labelled as such.
+- Walk is auto-detected from real distance — accurate for "did I walk," not a GPS route
+  (route/map was deliberately dropped; it needs a Watch or a native app for real fidelity).
+- Firebase holds only your activity numbers (no location), behind an obscure URL, read-only
+  to the pages, write-key on your phone only.
 
-- **Sleep is estimated** (charging + DND), not measured stages. Labelled on the card.
-- **Distance is motion-based** and accurate; the **route/map** lives in Apple Fitness from
-  the auto-workout, not on the dashboard (a live map would need an installed native app).
-- **History lives in the browser** on whichever device opens the page — don't clear that
-  site's data. The iCloud state file survives regardless.
-- **Geofence/Wi-Fi triggers** need Location "Always" and can occasionally be late; good
-  accountability, not a turnstile.
-
----
-
-## Test now (no Shortcuts needed)
-
-Open `DASH_URL?steps=9200&dist=6.4&sleep=7.3&gym=3&walk=1&hours=0,0,0,0,0,0,0,0,120,0,300,0,0,900,1200,600,0,0,800,0,300,0,0,0`
-to see a populated day. Open it across several days and the trend, streak, and movement
-clock fill in.
+## Test now (before Firebase)
+Open `https://christian-w-hub.github.io/stride/?steps=9200&dist=6.4&sleep=7.3&gym=3&walk=1&hours=0,0,0,0,0,0,0,0,120,0,300,0,0,900,1200,600,0,0,800,0,300,0,0,0`
+to see a populated day. Once `FIREBASE_URL` is set, it ignores the URL and lives off Firebase.

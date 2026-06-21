@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Stride" />
+<link rel="apple-touch-icon" href="assets/icon.png" />
 <title>STRIDE</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -149,6 +151,7 @@
   .grid>.card:nth-child(2){animation-delay:.06s}.grid>.card:nth-child(3){animation-delay:.12s}
   .grid>.card:nth-child(4){animation-delay:.18s}.grid>.card:nth-child(5){animation-delay:.24s}.grid>.card:nth-child(6){animation-delay:.3s}
   @keyframes rise{to{opacity:1;transform:none;filter:blur(0)}}
+  .silent .card{animation:none!important;opacity:1!important;transform:none!important;filter:none!important}
   @media (prefers-reduced-motion:reduce){
     .card{animation:none;opacity:1;transform:none;filter:none}#sky{transition:none}*{transition:none!important}
     ::view-transition-old(*),::view-transition-new(*){animation:none!important}
@@ -314,8 +317,14 @@ const $ = id => document.getElementById(id);
 const todayKey = d => { const x=d||new Date(); return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0'); };
 const num = n => { const x=Number(n); return Number.isFinite(x)?x:0; };
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+// silent refresh: a Firebase-triggered reload must not replay the entrance/count-up
+const silent = sessionStorage.getItem('strideSilent')==='1'; sessionStorage.removeItem('strideSilent');
+if(silent) document.documentElement.classList.add('silent');
+// === Paste your Firebase Realtime Database URL here to turn on always-on cross-device sync ===
+// e.g. 'https://stride-xxxx-default-rtdb.firebaseio.com'  (leave '' for local / URL-param mode)
+const FIREBASE_URL = '';
 function countUp(el,to,fmt){ fmt=fmt||(v=>Math.round(v));
-  if(reduce||!to){ el.textContent=fmt(to); return; }
+  if(reduce||silent||!to){ el.textContent=fmt(to); return; }
   const start=performance.now(),dur=900;
   (function tick(t){ const p=Math.min(1,(t-start)/dur),e=1-Math.pow(1-p,3); el.textContent=fmt(to*e); if(p<1) requestAnimationFrame(tick); })(start);
 }
@@ -502,6 +511,24 @@ setInterval(setSky, 60000);
   setInterval(()=>{ if(store.updated){ const hrs=(Date.now()-store.updated)/3.6e6; const s=$('stale');
     if(hrs>20){ s.textContent='Last synced '+Math.round(hrs)+'h ago — open the iPhone shortcut to refresh.'; s.classList.add('show'); } } }, 600000);
 })();
+
+// ---- slow ambient background (half speed = calmer breath) --------------
+(function(){ const v=document.getElementById('bgvideo'); if(!v) return;
+  const slow=()=>{ try{ v.playbackRate=0.5; }catch(e){} };
+  slow(); v.addEventListener('loadedmetadata',slow); v.addEventListener('play',slow); })();
+
+// ---- Firebase live sync (always-on, both devices, no manual refresh) ----
+function applyRemote(remote){
+  if(!remote || typeof remote!=='object' || !remote.days) return;
+  if(remote.updated && remote.updated===store.updated) return;        // nothing new since last paint
+  try{ localStorage.setItem('stride', JSON.stringify(remote)); }catch(e){}
+  sessionStorage.setItem('strideSilent','1'); location.reload();      // seamless re-render with fresh data
+}
+function pollFirebase(){ if(!FIREBASE_URL) return;
+  fetch(FIREBASE_URL.replace(/\/+$/,'')+'/stride.json',{cache:'no-store'})
+    .then(r=> r.ok ? r.json() : null).then(applyRemote).catch(()=>{});
+}
+if(FIREBASE_URL){ pollFirebase(); setInterval(pollFirebase, 60000); }
 
 // ---- shared area-chart drawer ------------------------------------------
 function drawArea(svg, vals, max, gid, goalFrac, dots){
