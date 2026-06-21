@@ -11,7 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500&display=swap" rel="stylesheet" />
 <style>
   :root{
-    --text:#F4F4F5; --text-dim:#C6C6D0; --text-faint:#9A9AA6;
+    --text:#F4F4F5; --text-dim:#D4D4DE; --text-faint:#ACACB8;
     --accent:#FF6A2C; --accent-2:#FFA63D; --good:#4ADE80;
     /* per-card tones — greater use of colour across the cards */
     --c-act:#FF7A3C;   --c-act2:#FFB347;
@@ -53,9 +53,13 @@
 
   .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:var(--gap)}
   .card{
-    background:var(--glass); backdrop-filter:blur(30px) saturate(160%) brightness(1.06); -webkit-backdrop-filter:blur(30px) saturate(160%) brightness(1.06);
+    background:var(--glass);
+    background:linear-gradient(160deg, rgba(8,9,12,.32), rgba(8,9,12,.04) 62%), color-mix(in srgb, var(--ca,#9a9aa6) 7%, var(--glass));
+    backdrop-filter:blur(30px) saturate(155%) brightness(.86); -webkit-backdrop-filter:blur(30px) saturate(155%) brightness(.86);
     border:1px solid var(--glass-line); border-radius:var(--r-card); padding:var(--pad); position:relative; overflow:hidden;
+    text-shadow:0 1px 2px rgba(0,0,0,.4);
     box-shadow:inset 0 1px 0 var(--inset), 0 24px 60px -30px rgba(0,0,0,.92);
+    box-shadow:inset 0 2px 0 color-mix(in srgb, var(--ca,#fff) 42%, transparent), inset 0 1px 0 var(--inset), 0 24px 60px -30px rgba(0,0,0,.92);
   }
   .chead{display:flex;align-items:center;gap:11px;margin-bottom:14px}
   .chip{width:36px;height:36px;border-radius:var(--r-chip);display:grid;place-items:center;font-size:17px;
@@ -94,7 +98,7 @@
 
   /* hero gauge */
   .hero{align-items:center;justify-content:center;text-align:center;gap:6px;
-    background:linear-gradient(165deg,rgba(255,255,255,.08),rgba(255,255,255,.02))}
+    background:linear-gradient(160deg, rgba(8,9,12,.30), rgba(8,9,12,.04) 62%), linear-gradient(165deg,rgba(255,255,255,.09),rgba(255,255,255,.02))}
   .hero .iconrow{display:flex;gap:7px;flex-wrap:wrap;justify-content:center;margin-bottom:6px}
   .hero .ic{width:30px;height:30px;border-radius:var(--r-chip);display:grid;place-items:center;font-size:13px;
     background:rgba(255,255,255,.07);border:1px solid var(--glass-line);opacity:.7}
@@ -267,7 +271,7 @@
 const GOAL = { gym:5, steps:8000, sleep:7.5, walkSteps:7000 };
 const $ = id => document.getElementById(id);
 const todayKey = d => { const x=d||new Date(); return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0'); };
-const num = n => Number(n)||0;
+const num = n => { const x=Number(n); return Number.isFinite(x)?x:0; };
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 function countUp(el,to,fmt){ fmt=fmt||(v=>Math.round(v));
   if(reduce||!to){ el.textContent=fmt(to); return; }
@@ -279,21 +283,25 @@ function weekId(d){ const x=new Date(d); const off=(x.getDay()+6)%7; x.setDate(x
 // ---- ingest ------------------------------------------------------------
 const p = new URLSearchParams(location.search);
 const has = k => p.has(k) && p.get(k)!=='';
-let store={}; try{ store=JSON.parse(localStorage.getItem('stride')||'{}'); }catch(e){ store={}; }
-store.days = store.days || {};
+let store={};
+try{ const raw=JSON.parse(localStorage.getItem('stride')||'{}'); store=(raw&&typeof raw==='object'&&!Array.isArray(raw))?raw:{}; }catch(e){ store={}; }
+if(!store.days || typeof store.days!=='object' || Array.isArray(store.days)) store.days={};
+store.gymWeeks = (store.gymWeeks && typeof store.gymWeeks==='object') ? store.gymWeeks : {};
 const now = new Date(); const key = todayKey(now);
 
 if (p.toString().length>0){
   const today = store.days[key] || {};
   if (has('steps')) today.steps = num(p.get('steps'));
-  if (has('dist'))  today.dist  = parseFloat(p.get('dist'))||0;
-  if (has('sleep')) today.sleep = parseFloat(p.get('sleep'))||0;
-  if (has('gym'))   store.gymWeek = { week: weekId(now), count: num(p.get('gym')) };
-  if (has('hours')) today.hours = p.get('hours').split(',').map(num).slice(0,24);
+  if (has('dist'))  today.dist  = num(p.get('dist'));
+  if (has('sleep')) today.sleep = num(p.get('sleep'));
+  if (has('gym')){ const wk=weekId(now), v=num(p.get('gym'));
+    if(store.gymWeek && store.gymWeek.week!==wk) store.gymWeeks[store.gymWeek.week]=store.gymWeek.count; // archive completed week
+    store.gymWeek = { week: wk, count: (store.gymWeek && store.gymWeek.week===wk) ? Math.max(store.gymWeek.count, v) : v }; }
+  if (has('hours')){ const a=p.get('hours').split(',').map(num); today.hours=Array.from({length:24},(_,i)=>num(a[i])); }
   if (has('walk'))  today.walkExplicit = today.walk = num(p.get('walk'))>0;
-  else if (today.steps!=null && !today.walkExplicit) today.walk = today.steps >= GOAL.walkSteps;
+  else if (today.steps!=null && !today.walkExplicit && today.steps>=GOAL.walkSteps) today.walk = true; // latch on; a later low-steps sync can't un-fill it
   store.days[key] = today; store.updated = now.getTime();
-  const cut=(()=>{const c=new Date(now);c.setDate(c.getDate()-60);return todayKey(c);})();
+  const cut=(()=>{const c=new Date(now);c.setDate(c.getDate()-400);return todayKey(c);})(); // keep ~400d so streak milestones (to 365) survive
   for(const d in store.days){ if(d<cut) delete store.days[d]; }
   try{ localStorage.setItem('stride', JSON.stringify(store)); }catch(e){}
 }
@@ -324,8 +332,8 @@ if(dist) countUp($('dist'), dist, v=>v.toFixed(1)); else $('dist').textContent='
 })();
 
 // ---- sleep: 7-night area + weekly delta --------------------------------
-$('sleepH').textContent = sleep? Math.floor(sleep):'—';
-$('sleepM').textContent = sleep? String(Math.round((sleep%1)*60)).padStart(2,'0')+'m':'';
+(function(){ if(!sleep){ $('sleepH').textContent='—'; $('sleepM').textContent=''; return; }
+  const m=Math.round(sleep*60); $('sleepH').textContent=Math.floor(m/60); $('sleepM').textContent=String(m%60).padStart(2,'0')+'m'; })();
 (function(){
   const series=[]; for(let i=6;i>=0;i--){ const d=new Date(now); d.setDate(d.getDate()-i);
     const r=store.days[todayKey(d)]; series.push(r&&r.sleep?r.sleep:0); }
@@ -433,7 +441,7 @@ function setSky(){
   // [hour, [r,g,b,a]] top-of-sky tint stops across the day
   const S=[[0,[8,12,30,.78]],[6,[55,52,92,.5]],[8,[255,150,95,.3]],[11,[150,180,222,.14]],
            [15,[255,205,150,.16]],[18,[240,110,60,.38]],[20,[150,55,70,.42]],[22,[22,24,52,.66]],[24,[8,12,30,.78]]];
-  const h=now.getHours()+now.getMinutes()/60;
+  const dn=new Date(); const h=dn.getHours()+dn.getMinutes()/60;
   let a=S[0],b=S[S.length-1];
   for(let i=0;i<S.length-1;i++){ if(h>=S[i][0]&&h<=S[i+1][0]){ a=S[i]; b=S[i+1]; break; } }
   const t=(h-a[0])/((b[0]-a[0])||1);
@@ -441,7 +449,18 @@ function setSky(){
   document.documentElement.style.setProperty('--sky-top', `rgba(${c[0]|0},${c[1]|0},${c[2]|0},${c[3].toFixed(3)})`);
 }
 setSky();
-if(!reduce){ setInterval(()=>{ now.setTime(Date.now()); setSky(); }, 60000); } // it lives as a constant iPad background
+setInterval(setSky, 60000);
+// always-on iPad background: keep the day/week correct without a manual refresh
+(function(){
+  const n=new Date(); const msToMidnight=new Date(n.getFullYear(),n.getMonth(),n.getDate()+1,0,0,5)-n;
+  setTimeout(()=>location.reload(), msToMidnight);                       // roll the day at local midnight
+  const guard=()=>{ if(!document.hidden && todayKey(new Date())!==key) location.reload(); };
+  document.addEventListener('visibilitychange', guard);                  // iPad woke / refocused on a new day
+  window.addEventListener('pageshow', e=>{ if(e.persisted && todayKey(new Date())!==key) location.reload(); });
+  // also refresh the staleness banner periodically so a long-idle instance shows it
+  setInterval(()=>{ if(store.updated){ const hrs=(Date.now()-store.updated)/3.6e6; const s=$('stale');
+    if(hrs>20){ s.textContent='Last synced '+Math.round(hrs)+'h ago — open the iPhone shortcut to refresh.'; s.classList.add('show'); } } }, 600000);
+})();
 
 // ---- shared area-chart drawer ------------------------------------------
 function drawArea(svg, vals, max, gid, goalFrac, dots){
@@ -451,8 +470,8 @@ function drawArea(svg, vals, max, gid, goalFrac, dots){
   let line='', started=false;
   vals.forEach((v,i)=>{ const X=xs(i).toFixed(1),Y=ys(v).toFixed(1); line+=(started?'L':'M')+X+' '+Y+' '; started=true; });
   const area = vals.length? `M${xs(0).toFixed(1)} ${H-pad} `+vals.map((v,i)=>'L'+xs(i).toFixed(1)+' '+ys(v).toFixed(1)).join(' ')+` L${xs(vals.length-1).toFixed(1)} ${H-pad} Z` : '';
-  const goal = goalFrac!=null ? `<line x1="${pad}" y1="${ys(goalFrac*max).toFixed(1)}" x2="${W-pad}" y2="${ys(goalFrac*max).toFixed(1)}" stroke="rgba(255,255,255,.22)" stroke-width="1" stroke-dasharray="3 3"/>` : '';
-  const pts = dots ? vals.map((v,i)=> v>0?`<circle cx="${xs(i).toFixed(1)}" cy="${ys(v).toFixed(1)}" r="${i===vals.length-1?2.2:1.4}" fill="${i===vals.length-1?'var(--cb)':'rgba(255,255,255,.5)'}"/>`:'').join('') : '';
+  const goal = goalFrac!=null ? `<line x1="${pad}" y1="${ys(goalFrac*max).toFixed(1)}" x2="${W-pad}" y2="${ys(goalFrac*max).toFixed(1)}" stroke="rgba(255,255,255,.34)" stroke-width="1" stroke-dasharray="3 3"/>` : '';
+  const pts = dots ? vals.map((v,i)=> v>0?`<circle cx="${xs(i).toFixed(1)}" cy="${ys(v).toFixed(1)}" r="${i===vals.length-1?2.2:1.4}" fill="${i===vals.length-1?'var(--cb)':'rgba(255,255,255,.7)'}"/>`:'').join('') : '';
   svg.innerHTML =
     `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--ca)" stop-opacity=".45"/><stop offset="1" stop-color="var(--ca)" stop-opacity="0"/></linearGradient></defs>`
     + (area?`<path d="${area}" fill="url(#${gid})"/>`:'') + goal
