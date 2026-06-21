@@ -118,6 +118,9 @@ Make 2–3 **Time of Day** automations through your flexible afternoon (e.g. **1
 - **Live-sync wired** — once `FIREBASE_URL` is set, both devices poll every 60s and
   refresh **seamlessly** (no flash, no re-animation).
 - **Background video slowed to half speed** — calmer, more ambient/breathing.
+- **Settings (gear, top-right)** — adjust your targets any time (gym/week, daily steps,
+  sleep target, what counts as a walk). Saved on the device; the whole dashboard re-scales
+  to the new goals.
 
 ## Honest caveats
 - Sleep is estimated (charging + Do Not Disturb window), labelled as such.
