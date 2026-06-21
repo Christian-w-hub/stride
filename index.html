@@ -504,15 +504,40 @@ function fmtHour(h){ const ap=h<12?'am':'pm'; let x=h%12; if(x===0)x=12; return 
 })();
 
 // ---- status ------------------------------------------------------------
-(function(){ const pool=[];
-  if(gym>=GOAL.gym) pool.push("That’s the week. <b>"+gym+" sessions.</b>");
-  if(!walkDone) pool.push("Good day to move. <b>Walk’s still open.</b>");
-  if(walkDone&&gym<GOAL.gym) pool.push("Walk done. <b>"+(GOAL.gym-gym)+" gym to go.</b>");
-  if(walkDone&&gym>=GOAL.gym) pool.push("Walk done, week done. <b>Solid.</b>");
-  if(streak>=3) pool.push("<b>"+streak+"-day</b> walk run going.");
-  if(!pool.length) pool.push("Fresh day. <b>One walk to start.</b>");
-  pool.push("Steady wins. <b>Show up today.</b>");
-  if(voice==='off'){ $('status').style.display='none'; } else { $('status').innerHTML = pool[ now.getDate() % pool.length ]; } })();
+// dry-witted companion that speaks as "I", reacts to meaningful signals, gentle on hard days
+(function(){ if(voice==='off'){ $('status').style.display='none'; return; }
+  const pick=a=>a[now.getDate()%a.length];
+  const lowSleep = sleep>0 && sleep < GOAL.sleep-1;
+  const weekDone = walkDone && gym>=GOAL.gym;
+  const ms=[7,14,30,60,100,200,365];
+  let line;
+  if(lowSleep) line=pick([
+    "Rough night, by the numbers. I'd keep today gentle — a short walk's plenty.",
+    "Sleep ran short. No heroics today; just the walk if you fancy it.",
+    "Light night. I'll go easy on you — you should too." ]);
+  else if(weekDone) line=pick([
+    "Walk in, gym week done. I'm almost impressed.",
+    "That's the week. I'd take a bow on your behalf.",
+    "Everything's ticked. I'll stop talking so you can enjoy it." ]);
+  else if(ms.includes(streak)) line=pick([
+    "<b>"+streak+" days</b> walking straight. I'm keeping count, even if you aren't.",
+    "<b>"+streak+"-day</b> streak. Quietly, I'm impressed." ]);
+  else if(!walkDone) line=pick([
+    "Walk's still open. I'll wait — I'm good at that.",
+    "No walk yet. The day won't walk itself, sadly.",
+    "Still owed a walk, whenever you're ready." ]);
+  else if(walkDone && gym<GOAL.gym) line=pick([
+    "Walk's in. <b>"+(GOAL.gym-gym)+"</b> gym to go — I'll keep the tally.",
+    "Walk done. Gym's at <b>"+gym+"/"+GOAL.gym+"</b>, for the record." ]);
+  else if(streak>=3) line=pick([
+    "<b>"+streak+"-day</b> run going. Best not look down.",
+    "<b>"+streak+"</b> days deep. I'm enjoying this." ]);
+  else line=pick([
+    "All quiet. I'll pipe up when it matters.",
+    "Nothing to report — not a bad thing.",
+    "Steady. I'll be here." ]);
+  $('status').innerHTML=line;
+})();
 
 // ---- celebration moments (once per event) ------------------------------
 (function(){
