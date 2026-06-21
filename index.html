@@ -219,6 +219,8 @@
   .setrow label{font-size:15px;color:var(--text-dim)}
   .setrow input{width:120px;background:rgba(255,255,255,.06);border:1px solid var(--glass-line);border-radius:8px;color:var(--text);font:inherit;font-size:15px;padding:8px 10px;text-align:right}
   .savebtn{margin-top:18px;width:100%;padding:13px;border-radius:10px;border:none;background:linear-gradient(150deg,var(--accent),var(--accent-2));color:#0c0d10;font:inherit;font-weight:500;font-size:15px;cursor:pointer}
+  .setrow select{background:rgba(255,255,255,.06);border:1px solid var(--glass-line);border-radius:8px;color:var(--text);font:inherit;font-size:15px;padding:8px 10px}
+  .crown{font-size:.7em;vertical-align:middle}
   .confetti{position:fixed;inset:0 0 auto 0;height:0;z-index:60;pointer-events:none;overflow:visible}
   .confetti i{position:absolute;top:-14px;width:8px;height:12px;border-radius:2px;opacity:.95;animation:fall 2.4s cubic-bezier(.3,.6,.5,1) forwards}
   @keyframes fall{to{transform:translateY(104vh) rotate(calc(var(--rx,1)*720deg));opacity:0}}
@@ -348,6 +350,7 @@ if(silent) document.documentElement.classList.add('silent');
 // === Paste your Firebase Realtime Database URL here to turn on always-on cross-device sync ===
 // e.g. 'https://stride-xxxx-default-rtdb.firebaseio.com'  (leave '' for local / URL-param mode)
 const FIREBASE_URL = '';
+const voice = (()=>{ try{ return localStorage.getItem('strideVoice')||'full'; }catch(e){ return 'full'; } })(); // full | subtle | off
 function countUp(el,to,fmt){ fmt=fmt||(v=>Math.round(v));
   if(reduce||silent||!to){ el.textContent=fmt(to); return; }
   const start=performance.now(),dur=900;
@@ -403,7 +406,7 @@ $('date').textContent = now.toLocaleDateString(undefined,{weekday:'long',day:'nu
 
 // ---- activity: cumulative steps area toward goal -----------------------
 countUp($('steps'), steps, v=>Math.round(v).toLocaleString());
-$('stepsGoal').textContent = '/ '+GOAL.steps.toLocaleString();
+$('stepsGoal').innerHTML = '/ '+GOAL.steps.toLocaleString() + (steps>=GOAL.steps?' <span class="crown" title="Daily goal met">👑</span>':'');
 if(dist) countUp($('dist'), dist, v=>v.toFixed(1)); else $('dist').textContent='—';
 (function(){ const h=day.hours||[]; const cum=[]; let s=0;
   for(let x=6;x<=23;x++){ s+=num(h[x]); cum.push(s); }
@@ -494,7 +497,8 @@ function fmtHour(h){ const ap=h<12?'am':'pm'; let x=h%12; if(x===0)x=12; return 
   if(walkDone&&gym>=GOAL.gym) pool.push("Walk done, week done. <b>Solid.</b>");
   if(streak>=3) pool.push("<b>"+streak+"-day</b> walk run going.");
   if(!pool.length) pool.push("Fresh day. <b>One walk to start.</b>");
-  $('status').innerHTML = pool[ now.getDate() % pool.length ]; })();
+  pool.push("Steady wins. <b>Show up today.</b>");
+  if(voice==='off'){ $('status').style.display='none'; } else { $('status').innerHTML = pool[ now.getDate() % pool.length ]; } })();
 
 // ---- celebration moments (once per event) ------------------------------
 (function(){
@@ -505,7 +509,7 @@ function fmtHour(h){ const ap=h<12?'am':'pm'; let x=h%12; if(x===0)x=12; return 
   const fireStreak = ms.includes(streak) && c.streak !== streak;
   if(fireWalk) c.walk=key; if(fireGym) c.gym=wk; if(fireStreak) c.streak=streak;
   if(fireWalk||fireGym||fireStreak){ try{ localStorage.setItem('stride',JSON.stringify(store)); }catch(e){} }
-  if(!reduce){
+  if(!reduce && voice!=='off'){
     if(fireWalk) $('walkRing').classList.add('celebrate');
     if(fireGym) document.querySelector('.hero').classList.add('celebrate');
     if(fireStreak) document.querySelector('.walk .streak').classList.add('celebrate');
@@ -778,10 +782,12 @@ function openSettings(){ const ov=$('overlay'), sheet=ov.querySelector('.sheet')
     +`<div class="setrow"><label>Daily step goal</label><input id="s-steps" type="number" min="1000" max="40000" step="500" value="${g.steps}"></div>`
     +`<div class="setrow"><label>Sleep target (hours)</label><input id="s-sleep" type="number" min="4" max="12" step="0.5" value="${g.sleep}"></div>`
     +`<div class="setrow"><label>A walk counts at (steps)</label><input id="s-walk" type="number" min="1000" max="15000" step="500" value="${g.walkSteps}"></div>`
+    +`<div class="setrow"><label>Voice <span style="color:var(--text-faint)">— how chatty</span></label><select id="s-voice"><option value="full">Full</option><option value="subtle">Subtle</option><option value="off">Off</option></select></div>`
     +`<button class="savebtn" id="s-save">Save targets</button>`
     +`<div class="note" style="margin-top:12px;text-transform:none;letter-spacing:0">Saved on this device. Change these any time as your goals evolve.</div>`;
+  $('s-voice').value=voice;
   $('s-save').addEventListener('click', ()=>{ const ng={gym:+$('s-gym').value||5, steps:+$('s-steps').value||8000, sleep:+$('s-sleep').value||7.5, walkSteps:+$('s-walk').value||7000};
-    try{ localStorage.setItem('strideGoals', JSON.stringify(ng)); }catch(e){} location.reload(); });
+    try{ localStorage.setItem('strideGoals', JSON.stringify(ng)); localStorage.setItem('strideVoice', $('s-voice').value); }catch(e){} location.reload(); });
   ov.hidden=false; }
 function closeOverlay(){ $('overlay').hidden=true; }
 $('ovClose').addEventListener('click', closeOverlay);
@@ -800,7 +806,7 @@ $('settingsBtn').innerHTML=icon('settings'); $('settingsBtn').addEventListener('
 // surprise: confetti when a new trophy is earned or you rank up (once, per device)
 (function(){ if(silent) return; const h=historyStats(); const got=TROPHIES.filter(t=>t.test(h)).length; const rank=rankOf(got);
   let seen={}; try{ seen=JSON.parse(localStorage.getItem('strideSeen')||'{}'); }catch(e){}
-  if(got>(seen.trophies||0) || (seen.rank&&seen.rank!==rank)) confetti();
+  if((got>(seen.trophies||0) || (seen.rank&&seen.rank!==rank)) && voice==='full') confetti();
   if(got!==seen.trophies||rank!==seen.rank){ try{ localStorage.setItem('strideSeen',JSON.stringify({trophies:got,rank})); }catch(e){} }
 })();
 </script>
