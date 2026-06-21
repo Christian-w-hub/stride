@@ -619,31 +619,49 @@ function aggMonths(nMonths){ const out=[]; const n=new Date(); const M=['J','F',
 
 // trophies — computed from full history, so they're earned-once and never reset
 const TROPHIES=[
+  // walks
   {e:'🚶',t:'First walk',test:h=>h.walkDays>=1},
   {e:'✅',t:'10 walks',test:h=>h.walkDays>=10},
   {e:'🥾',t:'50 walks',test:h=>h.walkDays>=50},
   {e:'🗺️',t:'100 walks',test:h=>h.walkDays>=100},
+  // streaks (rest-aware)
   {e:'🔥',t:'7-day streak',test:h=>h.bestStreak>=7},
   {e:'⭐',t:'30-day streak',test:h=>h.bestStreak>=30},
   {e:'🏅',t:'100-day streak',test:h=>h.bestStreak>=100},
   {e:'👑',t:'365-day streak',test:h=>h.bestStreak>=365},
+  // steps
   {e:'👟',t:'10k-step day',test:h=>h.bestSteps>=10000},
   {e:'⚡',t:'15k-step day',test:h=>h.bestSteps>=15000},
   {e:'💪',t:'50k-step week',test:h=>h.bestWeekSteps>=50000},
-  {e:'🚀',t:'70k-step week',test:h=>h.bestWeekSteps>=70000},
   {e:'🦶',t:'1M steps',test:h=>h.totalSteps>=1000000},
-  {e:'🌍',t:'5M steps',test:h=>h.totalSteps>=5000000},
+  // distance
+  {e:'🧭',t:'100 km',test:h=>h.totalKm>=100},
+  {e:'🌍',t:'500 km',test:h=>h.totalKm>=500},
+  // sleep (estimated window — duration only, never quality/stages)
+  {e:'🌙',t:'Good night',test:h=>h.nightsTarget>=1},
+  {e:'😴',t:'10 rested nights',test:h=>h.nightsTarget>=10},
+  {e:'🛌',t:'50 rested nights',test:h=>h.nightsTarget>=50},
+  // gym
   {e:'🏋️',t:'Full gym week',test:h=>h.bestGymWeek>=GOAL.gym},
   {e:'🎖️',t:'4 gym weeks',test:h=>h.gymGoalWeeks>=4},
   {e:'🏆',t:'25 gym visits',test:h=>h.totalGym>=25},
-  {e:'🥇',t:'100 gym visits',test:h=>h.totalGym>=100}
+  // combo + seasonal (the 'external' bit, from the calendar — no API needed)
+  {e:'⚖️',t:'Rested & ready',test:h=>h.restedReady>=1},
+  {e:'🌅',t:'Dawn mover',test:h=>h.dawnDays>=5},
+  {e:'❄️',t:'Winter walker',test:h=>h.winterWalks>=10},
+  {e:'🍃',t:'Four seasons',test:h=>h.seasons>=4}
 ];
-function historyStats(){ const ks=Object.keys(store.days); let walkDays=0,bestSteps=0,totalSteps=0;
-  ks.forEach(k=>{ const r=store.days[k]; const s=num(r.steps); totalSteps+=s; if(r.walk)walkDays++; if(s>bestSteps)bestSteps=s; });
+function historyStats(){ const ks=Object.keys(store.days);
+  let walkDays=0,bestSteps=0,totalSteps=0,totalKmv=0,nightsTarget=0,restedReady=0,dawnDays=0,winterWalks=0; const seasons={};
+  ks.forEach(k=>{ const r=store.days[k]; const s=num(r.steps); totalSteps+=s; totalKmv+=num(r.dist); if(s>bestSteps)bestSteps=s;
+    const m=+k.slice(5,7); const se=(m===12||m<=2)?'win':m<=5?'spr':m<=8?'sum':'aut';
+    if(r.walk){ walkDays++; seasons[se]=1; if(se==='win')winterWalks++; }
+    if(num(r.sleep)>=GOAL.sleep){ nightsTarget++; if(s>=GOAL.steps) restedReady++; }
+    const h=r.hours; if(h&&(num(h[5])+num(h[6]))>200) dawnDays++; });
   const wk={}; ks.forEach(k=>{ const w=weekId(new Date(k+'T00:00')); wk[w]=(wk[w]||0)+num(store.days[k].steps); });
-  const bestWeekSteps=Math.max(0,...Object.values(wk));
   const gyms=Object.values(store.gymWeeks||{}).map(Number); if(store.gymWeek) gyms.push(num(store.gymWeek.count));
-  return {walkDays,bestSteps,totalSteps,totalGym:gyms.reduce((a,b)=>a+b,0),bestStreak:longestStreakGrace(),bestWeekSteps,bestGymWeek:Math.max(0,...gyms),gymGoalWeeks:gyms.filter(c=>c>=GOAL.gym).length}; }
+  return {walkDays,bestSteps,totalSteps,totalKm:Math.round(totalKmv),nightsTarget,restedReady,dawnDays,winterWalks,seasons:Object.keys(seasons).length,
+    totalGym:gyms.reduce((a,b)=>a+b,0),bestStreak:longestStreakGrace(),bestWeekSteps:Math.max(0,...Object.values(wk)),bestGymWeek:Math.max(0,...gyms),gymGoalWeeks:gyms.filter(c=>c>=GOAL.gym).length}; }
 function trophyShelf(){ const h=historyStats(); const got=TROPHIES.filter(t=>t.test(h)).length;
   const rank=rankOf(got);
   return `<div class="ovrow" style="margin-top:20px"><span>Trophy shelf · <b>${rank}</b></span><span style="color:var(--text-faint);font-size:12px">${got}/${TROPHIES.length} earned</span></div>`
@@ -657,7 +675,7 @@ function monthKm(){ const n=new Date(); const pref=n.getFullYear()+'-'+String(n.
   for(const k in store.days){ if(k.indexOf(pref)===0) km+=num(store.days[k].dist); } return km; }
 function insight(t){ return `<div class="insight">${t}</div>`; }
 function actIns(){ return Object.keys(store.days).length>=5? insight('You move most on <b>'+bestWeekday()+'</b>.') : ''; }
-function rankOf(g){ return g>=15?'Relentless':g>=11?'Athlete':g>=7?'Strider':g>=3?'Mover':'Getting started'; }
+function rankOf(g){ return g>=20?'Relentless':g>=14?'Athlete':g>=8?'Strider':g>=3?'Mover':'Getting started'; }
 function longestStreakGrace(){ const ks=Object.keys(store.days).sort(); if(!ks.length) return 0;
   let best=0,cur=0,miss=0; const end=new Date();
   for(let d=new Date(ks[0]+'T00:00'); d<=end; d.setDate(d.getDate()+1)){ const r=store.days[todayKey(d)];
