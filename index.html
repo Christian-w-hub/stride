@@ -229,6 +229,9 @@
   .plan td{padding:9px 0;border-bottom:1px solid rgba(255,255,255,.07);font-size:14px;color:var(--text)}
   .plan td:first-child{width:48%}
   .plan td.pn{text-align:right;color:var(--text-dim);font-size:12.5px;white-space:nowrap;padding-left:8px}
+  .plan tr.trim td{opacity:.42}
+  .trimtag{font-size:10px;color:var(--accent-2);border:1px solid var(--glass-line);border-radius:5px;padding:1px 5px;margin-left:6px;vertical-align:middle;opacity:1}
+  .lowbanner{background:rgba(255,166,61,.12);border:1px solid rgba(255,166,61,.28);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--text-dim);margin-bottom:12px}
   .weekplan{display:flex;gap:6px;margin-top:8px}
   .weekplan .wp{flex:1;text-align:center}
   .wpd{font-size:10px;color:var(--text-faint);margin-bottom:5px}
@@ -787,8 +790,11 @@ const SESS_TITLE={UA:'Upper A',LA:'Lower A',UB:'Upper B',LB:'Lower B',UC:'Upper 
 const SCHED4=['UA','LA','cardio','UB','LB','cardio','rest'];
 const SCHED5=['UA','LA','UB','rest','LB','UC','cardio'];
 function schedule(){ return trainingDays()>=5?SCHED5:SCHED4; }
-function renderSession(key){ const s=session(key); if(!s) return '';
-  return '<table class="plan">'+s.map(x=>`<tr><td>${x.name}</td><td class="pn">${x.sets}×${x.reps}</td><td class="pn">${x.rir} RIR</td><td class="pn">${x.rest}</td></tr>`).join('')+'</table>'; }
+function renderSession(key,low){ const s=session(key); if(!s) return '';
+  const cut = low ? Math.min(2, Math.max(0,s.length-3)) : 0; const from=s.length-cut;
+  const rows=s.map((x,i)=>{ const tr=i>=from; return `<tr class="${tr?'trim':''}"><td>${x.name}${tr?' <span class="trimtag">ease today</span>':''}</td><td class="pn">${x.sets}×${x.reps}</td><td class="pn">${x.rir} RIR</td><td class="pn">${x.rest}</td></tr>`; }).join('');
+  const banner = low ? `<div class="lowbanner">Under 7h sleep — I'd go max bang-for-buck. Full session below; the dimmed moves are safe to cut today.</div>` : '';
+  return banner+'<table class="plan">'+rows+'</table>'; }
 function weekStrip(){ const sc=schedule(); const ds=['M','T','W','T','F','S','S']; const cur=(new Date().getDay()+6)%7;
   return '<div class="weekplan">'+sc.map((k,i)=>`<div class="wp${i===cur?' now':''}"><div class="wpd">${ds[i]}</div><div class="wpk ${k==='cardio'?'k-cardio':k==='rest'?'k-rest':'k-sess'}">${k==='cardio'?'CRD':k==='rest'?'·':k}</div></div>`).join('')+'</div>'; }
 
@@ -839,7 +845,7 @@ const RENDER={
     let h=`<div class="ovrow"><span>Today — <b>${SESS_TITLE[key]}</b></span><span style="color:var(--text-faint);font-size:12px">${trainingDays()}-day Upper/Lower</span></div>`;
     if(key==='cardio') h+='<div class="insight">20–25 min easy cycling or incline walk. Keep it off leg days.</div>';
     else if(key==='rest') h+='<div class="insight">Rest day. Recovery is part of the plan — that’s when you grow.</div>';
-    else h+=renderSession(key);
+    else h+=renderSession(key, sleep>0 && sleep<7);
     h+='<div class="ovrow" style="margin-top:18px"><span>This week</span></div>'+weekStrip()+stretchBlock();
     const wkk=weekId(new Date()); const cur=(store.gymWeek&&store.gymWeek.week===wkk)?store.gymWeek.count:0;
     const hist=Object.entries(store.gymWeeks||{}).sort((a,b)=>a[0]<b[0]?-1:1).slice(-11);
@@ -914,6 +920,9 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeOverlay(); }
 (function(){ const ics=document.querySelectorAll('.hero .ic'); const names=['activity','footprints','dumbbell','moon','gauge'];
   ics.forEach((el,i)=>{ if(names[i]) el.innerHTML=icon(names[i],15); }); })();
 $('settingsBtn').innerHTML=icon('settings'); $('settingsBtn').addEventListener('click', openSettings);
+// surface today's workout on the gym card (deferred so training defs exist)
+(function(){ try{ const k=schedule()[(new Date().getDay()+6)%7]; const togo=gym>=GOAL.gym?'week complete':(GOAL.gym-gym)+' to go this week';
+  $('gymFoot').innerHTML=`Today · <b>${SESS_TITLE[k]}</b><br><span style="color:var(--text-faint);font-size:12px">${togo}</span>`; }catch(e){} })();
 
 // surprise: confetti when a new trophy is earned or you rank up (once, per device)
 (function(){ if(silent) return; const h=historyStats(); const got=TROPHIES.filter(t=>t.test(h)).length; const rank=rankOf(got);
