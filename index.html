@@ -20,11 +20,10 @@
     --c-sleep:#8B9BFF; --c-sleep2:#B79BFF;
     --c-gym:#3FE0A0;   --c-gym2:#86E88A;
     --c-walk:#FFC24B;  --c-walk2:#FF9A3D;
-    --bg-img:url('assets/meadow.jpg');   /* poster + fallback; swap to track.jpg */
-    --glass:rgba(17,18,22,.50); --glass-line:rgba(255,255,255,.14); --inset:rgba(255,255,255,.10);
+    --sky-top:#16386a; --sky-mid:#5a86b8; --sky-horizon:#dfeaf5; --sun:rgba(255,225,170,.32); --sun-x:50%; --sun-y:70%;
+    --glass:rgba(16,17,21,.56); --glass-line:rgba(255,255,255,.14); --inset:rgba(255,255,255,.10);
     --r-card:14px; --r-el:5px; --r-chip:9px; --gap:18px; --pad:22px;
     --font:"Inter Tight","Inter",system-ui,-apple-system,sans-serif;
-    --sky-top:rgba(8,12,30,.4);
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
@@ -33,14 +32,14 @@
     -webkit-font-smoothing:antialiased; min-height:100%; background:#0c0d10;
     padding:max(22px,env(safe-area-inset-top)) clamp(16px,3vw,34px) 30px;
   }
-  /* alive background: video (or photo poster) + time-of-day sky tint */
-  #bgvideo{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:-3;
-    background:var(--bg-img) center/cover no-repeat;}
+  /* living sky — time-of-day gradient + a slow-drifting sun glow */
   #sky{position:fixed;inset:0;z-index:-2;pointer-events:none;transition:background 4s linear;
-    background:
-      linear-gradient(180deg, rgba(8,9,11,.42) 0%, transparent 13%),
-      linear-gradient(180deg, var(--sky-top) 0%, transparent 46%),
-      linear-gradient(180deg, transparent 34%, rgba(8,9,11,.5) 78%, rgba(8,9,11,.84) 100%);}
+    background:linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 46%, var(--sky-horizon) 100%);}
+  #sky::after{content:"";position:absolute;inset:0;transition:background 4s linear;
+    background:radial-gradient(56% 46% at var(--sun-x) var(--sun-y), var(--sun), transparent 62%);
+    animation:sundrift 80s ease-in-out infinite alternate;}
+  @keyframes sundrift{from{transform:translate3d(-1.5%,1%,0) scale(1.02)}to{transform:translate3d(2%,-1.5%,0) scale(1.06)}}
+  @media (prefers-reduced-motion:reduce){#sky::after{animation:none}}
 
   .num{font-weight:500;line-height:.95}
   .label{font-size:12px;text-transform:uppercase;letter-spacing:.1em;font-weight:500;color:var(--text-dim)}
@@ -59,12 +58,12 @@
   .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:var(--gap)}
   .card{
     background:var(--glass);
-    background:linear-gradient(160deg, rgba(8,9,12,.32), rgba(8,9,12,.04) 62%), color-mix(in srgb, var(--ca,#9a9aa6) 7%, var(--glass));
+    background:linear-gradient(160deg, rgba(8,9,12,.44), rgba(8,9,12,.10) 62%), color-mix(in srgb, var(--ca,#9a9aa6) 4%, var(--glass));
     backdrop-filter:blur(30px) saturate(155%) brightness(.86); -webkit-backdrop-filter:blur(30px) saturate(155%) brightness(.86);
     border:1px solid var(--glass-line); border-radius:var(--r-card); padding:var(--pad); position:relative; overflow:hidden;
     text-shadow:0 1px 2px rgba(0,0,0,.4);
     box-shadow:inset 0 1px 0 var(--inset), 0 24px 60px -30px rgba(0,0,0,.92);
-    box-shadow:inset 0 2px 0 color-mix(in srgb, var(--ca,#fff) 42%, transparent), inset 0 1px 0 var(--inset), 0 24px 60px -30px rgba(0,0,0,.92);
+    box-shadow:inset 0 2px 0 color-mix(in srgb, var(--ca,#fff) 24%, transparent), inset 0 1px 0 var(--inset), 0 24px 60px -30px rgba(0,0,0,.92);
   }
   .chead{display:flex;align-items:center;gap:11px;margin-bottom:14px}
   .chip{width:36px;height:36px;border-radius:var(--r-chip);display:grid;place-items:center;font-size:17px;border:1px solid var(--glass-line);
@@ -104,7 +103,7 @@
 
   /* hero gauge */
   .hero{align-items:center;justify-content:center;text-align:center;gap:6px;
-    background:linear-gradient(160deg, rgba(8,9,12,.30), rgba(8,9,12,.04) 62%), linear-gradient(165deg,rgba(255,255,255,.09),rgba(255,255,255,.02))}
+    background:linear-gradient(160deg, rgba(8,9,12,.44), rgba(8,9,12,.10) 62%), linear-gradient(165deg,rgba(255,255,255,.05),rgba(255,255,255,.02))}
   .hero .iconrow{display:flex;gap:7px;flex-wrap:wrap;justify-content:center;margin-bottom:6px}
   .hero .ic{width:30px;height:30px;border-radius:var(--r-chip);display:grid;place-items:center;font-size:13px;
     background:rgba(255,255,255,.07);border:1px solid var(--glass-line);opacity:.7}
@@ -244,9 +243,6 @@
 </style>
 </head>
 <body>
-  <video id="bgvideo" autoplay muted loop playsinline poster="assets/meadow.jpg">
-    <source src="assets/bg.mp4" type="video/mp4" />
-  </video>
   <div id="sky"></div>
 
   <header>
@@ -537,16 +533,28 @@ if(store.updated){ const hrs=(Date.now()-store.updated)/3.6e6;
   if(hrs>20){ const s=$('stale'); s.textContent='Last synced '+Math.round(hrs)+'h ago — open the iPhone shortcut to refresh.'; s.classList.add('show'); } }
 
 // ---- time-of-day sky (the background acts as a clock) ------------------
-function setSky(){
-  // [hour, [r,g,b,a]] top-of-sky tint stops across the day
-  const S=[[0,[8,12,30,.78]],[6,[55,52,92,.5]],[8,[255,150,95,.3]],[11,[150,180,222,.14]],
-           [15,[255,205,150,.16]],[18,[240,110,60,.38]],[20,[150,55,70,.42]],[22,[22,24,52,.66]],[24,[8,12,30,.78]]];
-  const dn=new Date(); const h=dn.getHours()+dn.getMinutes()/60;
-  let a=S[0],b=S[S.length-1];
-  for(let i=0;i<S.length-1;i++){ if(h>=S[i][0]&&h<=S[i+1][0]){ a=S[i]; b=S[i+1]; break; } }
-  const t=(h-a[0])/((b[0]-a[0])||1);
-  const c=a[1].map((v,i)=> v + (b[1][i]-v)*t);
-  document.documentElement.style.setProperty('--sky-top', `rgba(${c[0]|0},${c[1]|0},${c[2]|0},${c[3].toFixed(3)})`);
+// time-of-day sky: [hour, top, mid, horizon, sun[r,g,b,a], sunY%]  (sourced sunrise/midday/sunset palettes)
+const SKY=[
+  [0,   [10,16,38],[18,26,54],[28,36,68],   [120,140,200,.10],80],  // night
+  [5,   [26,34,74],[58,64,108],[120,96,128], [200,140,150,.20],88],  // pre-dawn
+  [7,   [40,92,150],[150,170,120],[255,225,120],[255,200,120,.50],86],// sunrise — blue + yellow
+  [9,   [44,110,180],[120,170,215],[225,235,200],[255,235,180,.34],70],// morning
+  [12,  [30,95,170],[110,165,215],[225,238,250],[255,255,245,.28],36],// midday — blue + white
+  [15,  [42,108,180],[140,185,220],[235,225,195],[255,240,205,.32],55],// afternoon
+  [18,  [40,70,130],[235,150,90],[255,205,130], [255,170,90,.46],82], // golden hour — warm
+  [19.5,[50,40,95],[235,95,70],[255,150,110],  [255,110,80,.46],88],  // sunset — warm
+  [21,  [22,26,68],[60,40,92],[110,70,110],    [150,80,120,.26],85],  // dusk — purple
+  [24,  [10,16,38],[18,26,54],[28,36,68],      [120,140,200,.10],80]
+];
+function setSky(){ const dn=new Date(); const h=dn.getHours()+dn.getMinutes()/60;
+  let A=SKY[0],B=SKY[SKY.length-1];
+  for(let i=0;i<SKY.length-1;i++){ if(h>=SKY[i][0]&&h<=SKY[i+1][0]){ A=SKY[i];B=SKY[i+1];break; } }
+  const t=(h-A[0])/((B[0]-A[0])||1), L=(a,b)=>a+(b-a)*t;
+  const mix=i=>A[i].map((v,j)=>L(v,B[i][j]));
+  const rgb=a=>`rgb(${a[0]|0},${a[1]|0},${a[2]|0})`, rgba=a=>`rgba(${a[0]|0},${a[1]|0},${a[2]|0},${a[3].toFixed(3)})`;
+  const s=document.documentElement.style;
+  s.setProperty('--sky-top',rgb(mix(1))); s.setProperty('--sky-mid',rgb(mix(2))); s.setProperty('--sky-horizon',rgb(mix(3)));
+  s.setProperty('--sun',rgba(mix(4))); s.setProperty('--sun-y',L(A[5],B[5]).toFixed(1)+'%');
 }
 setSky();
 setInterval(setSky, 60000);
@@ -561,11 +569,6 @@ setInterval(setSky, 60000);
   setInterval(()=>{ if(store.updated){ const hrs=(Date.now()-store.updated)/3.6e6; const s=$('stale');
     if(hrs>20){ s.textContent='Last synced '+Math.round(hrs)+'h ago — open the iPhone shortcut to refresh.'; s.classList.add('show'); } } }, 600000);
 })();
-
-// ---- slow ambient background (half speed = calmer breath) --------------
-(function(){ const v=document.getElementById('bgvideo'); if(!v) return;
-  const slow=()=>{ try{ v.playbackRate=0.5; }catch(e){} };
-  slow(); v.addEventListener('loadedmetadata',slow); v.addEventListener('play',slow); })();
 
 // ---- Firebase live sync (always-on, both devices, no manual refresh) ----
 function applyRemote(remote){
