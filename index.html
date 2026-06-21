@@ -8,45 +8,48 @@
 <title>STRIDE</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500&display=swap" rel="stylesheet" />
 <style>
   :root{
-    --text:#F4F4F5; --text-dim:#C6C6D0; --text-faint:#9E9EAA;
+    --text:#F4F4F5; --text-dim:#C6C6D0; --text-faint:#9A9AA6;
     --accent:#FF6A2C; --accent-2:#FFA63D; --good:#4ADE80;
-    --bg-img:url('assets/meadow.jpg');   /* swap to url('assets/track.jpg') */
+    /* per-card tones — greater use of colour across the cards */
+    --c-act:#FF7A3C;   --c-act2:#FFB347;
+    --c-sleep:#8B9BFF; --c-sleep2:#B79BFF;
+    --c-gym:#3FE0A0;   --c-gym2:#86E88A;
+    --c-walk:#FFC24B;  --c-walk2:#FF9A3D;
+    --bg-img:url('assets/meadow.jpg');   /* poster + fallback; swap to track.jpg */
     --glass:rgba(17,18,22,.50); --glass-line:rgba(255,255,255,.14); --inset:rgba(255,255,255,.10);
     --r-card:14px; --r-el:5px; --r-chip:9px; --gap:18px; --pad:22px;
-    --font:"Archivo","Inter",system-ui,-apple-system,sans-serif;
+    --font:"Inter Tight","Inter",system-ui,-apple-system,sans-serif;
+    --sky-top:rgba(8,12,30,.4);
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
   body{
-    font-family:var(--font); color:var(--text); font-variant-numeric:tabular-nums;
-    -webkit-font-smoothing:antialiased; min-height:100%;
+    font-family:var(--font); font-weight:400; color:var(--text); font-variant-numeric:tabular-nums;
+    -webkit-font-smoothing:antialiased; min-height:100%; background:#0c0d10;
     padding:max(22px,env(safe-area-inset-top)) clamp(16px,3vw,34px) 30px;
-    background:
-      linear-gradient(180deg, rgba(9,10,12,.50) 0%, rgba(9,10,12,.74) 60%, rgba(9,10,12,.86) 100%),
-      var(--bg-img) center/cover no-repeat fixed,
-      #0c0d10;
   }
-  /* living gradient ground — drifts slowly behind the frosted glass */
-  body::before{ content:""; position:fixed; inset:-25%; z-index:-1; pointer-events:none;
+  /* alive background: video (or photo poster) + time-of-day sky tint */
+  #bgvideo{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:-3;
+    background:var(--bg-img) center/cover no-repeat;}
+  #sky{position:fixed;inset:0;z-index:-2;pointer-events:none;transition:background 4s linear;
     background:
-      radial-gradient(38% 38% at 28% 32%, rgba(255,106,44,.06), transparent 70%),
-      radial-gradient(42% 42% at 76% 66%, rgba(70,150,220,.05), transparent 70%),
-      radial-gradient(34% 34% at 62% 18%, rgba(255,166,61,.05), transparent 70%);
-    filter:blur(34px); animation:drift 28s ease-in-out infinite alternate; }
-  @keyframes drift{ 0%{transform:translate(-3%,-2%) scale(1)} 50%{transform:translate(3%,2%) scale(1.08)} 100%{transform:translate(-2%,3%) scale(1.03)} }
-  .num{font-weight:800;line-height:.92}
-  .label{font-size:12px;text-transform:uppercase;letter-spacing:.1em;font-weight:600;color:var(--text-dim)}
-  .unit{color:var(--text-faint);font-weight:600}
-  .tag{font-size:11px;color:var(--text-faint);font-weight:600;letter-spacing:.04em}
+      linear-gradient(180deg, rgba(8,9,11,.42) 0%, transparent 13%),
+      linear-gradient(180deg, var(--sky-top) 0%, transparent 46%),
+      linear-gradient(180deg, transparent 34%, rgba(8,9,11,.5) 78%, rgba(8,9,11,.84) 100%);}
+
+  .num{font-weight:500;line-height:.95}
+  .label{font-size:12px;text-transform:uppercase;letter-spacing:.1em;font-weight:500;color:var(--text-dim)}
+  .unit{color:var(--text-faint);font-weight:400}
+  .tag{font-size:11px;color:var(--text-faint);font-weight:400;letter-spacing:.04em}
 
   header{display:flex;justify-content:space-between;align-items:baseline;gap:16px;margin:2px 4px 18px}
-  .date{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);font-weight:600}
-  .status{font-size:clamp(17px,2.2vw,24px);font-weight:700;margin-top:2px}
-  .status b{color:var(--accent-2)}
-  .wordmark{font-size:12px;letter-spacing:.36em;font-weight:800;color:var(--text-faint)}
+  .date{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);font-weight:400}
+  .status{font-size:clamp(17px,2.2vw,24px);font-weight:500;margin-top:2px}
+  .status b{color:var(--accent-2);font-weight:500}
+  .wordmark{font-size:12px;letter-spacing:.36em;font-weight:500;color:var(--text-faint)}
 
   .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:var(--gap)}
   .card{
@@ -54,43 +57,44 @@
     border:1px solid var(--glass-line); border-radius:var(--r-card); padding:var(--pad); position:relative; overflow:hidden;
     box-shadow:inset 0 1px 0 var(--inset), 0 24px 60px -30px rgba(0,0,0,.92);
   }
-  .chead{display:flex;align-items:center;gap:11px;margin-bottom:16px}
-  .chip{width:38px;height:38px;border-radius:var(--r-chip);display:grid;place-items:center;font-size:18px;
-    background:linear-gradient(150deg,rgba(255,255,255,.16),rgba(255,255,255,.03));border:1px solid var(--glass-line)}
-  .ctitle{font-size:16px;font-weight:700}
+  .chead{display:flex;align-items:center;gap:11px;margin-bottom:14px}
+  .chip{width:36px;height:36px;border-radius:var(--r-chip);display:grid;place-items:center;font-size:17px;
+    background:linear-gradient(150deg,var(--ca,#888),var(--cb,#555));box-shadow:inset 0 1px 0 rgba(255,255,255,.25), 0 4px 12px -4px var(--ca,transparent)}
+  .ctitle{font-size:15px;font-weight:500}
   .chead .tag{margin-left:auto}
 
   /* placement */
-  .activity{grid-column:1 / 4} .sleep{grid-column:4 / 7} .gym{grid-column:7 / 10}
+  .activity{--ca:var(--c-act);--cb:var(--c-act2);grid-column:1 / 4}
+  .sleep{--ca:var(--c-sleep);--cb:var(--c-sleep2);grid-column:4 / 7}
+  .gym{--ca:var(--c-gym);--cb:var(--c-gym2);grid-column:7 / 10}
   .hero{grid-column:10 / 13; grid-row:1 / 3; display:flex;flex-direction:column}
-  .walk{grid-column:1 / 6} .clock{grid-column:6 / 10}
+  .walk{--ca:var(--c-walk);--cb:var(--c-walk2);grid-column:1 / 6}
+  .clock{--ca:var(--accent);--cb:var(--accent-2);grid-column:6 / 10}
 
-  /* activity */
-  .activity .big{font-size:clamp(34px,4vw,46px)}
-  .activity .row{display:flex;align-items:baseline;gap:8px}
-  .mini{display:flex;align-items:flex-end;gap:3px;height:46px;margin-top:14px}
-  .mini > span{flex:1;background:rgba(255,255,255,.12);border-radius:var(--r-el) var(--r-el) 0 0;min-height:2px;transition:height .65s cubic-bezier(.34,1.25,.64,1)}
-  .mini > span.on{background:linear-gradient(180deg,var(--accent-2),var(--accent))}
-  .dist{margin-top:12px;color:var(--text-dim);font-size:14px;font-weight:600}
-  .dist b{color:var(--text);font-weight:800}
+  .big{font-size:clamp(34px,4vw,46px)}
+  .row{display:flex;align-items:baseline;gap:8px}
+
+  /* activity — cumulative steps area toward goal */
+  .chart{margin-top:12px;width:100%;height:50px;display:block}
+  .dist{margin-top:10px;color:var(--text-dim);font-size:13px;font-weight:400}
+  .dist b{color:var(--text);font-weight:500}
 
   /* sleep */
-  .sleep .big{font-size:clamp(34px,4vw,46px)}
-  .sleep .row{display:flex;align-items:baseline;gap:6px}
-  .spark{margin-top:8px;width:100%;height:54px;display:block}
-  .note{font-size:11px;color:var(--text-faint);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-top:10px}
+  .delta{font-size:13px;font-weight:500;color:var(--good)}
+  .delta.down{color:var(--accent-2)}
+  .note{font-size:11px;color:var(--text-faint);font-weight:400;text-transform:uppercase;letter-spacing:.05em;margin-top:8px}
 
-  /* gym */
-  .gym .big{font-size:clamp(40px,5vw,56px)}
-  .gym .big .sub{font-size:.4em;color:var(--text-faint);font-weight:700}
-  .pips{display:flex;gap:6px;margin-top:14px}
-  .pip{height:7px;flex:1;border-radius:var(--r-el);background:rgba(255,255,255,.12)}
-  .pip.on{background:linear-gradient(90deg,var(--accent),var(--accent-2))}
-  .gym .foot{color:var(--text-dim);font-size:14px;font-weight:600;margin-top:14px}
+  /* gym — segmented progress ring */
+  .gym .body{display:flex;align-items:center;gap:18px}
+  .gring{position:relative;flex:0 0 auto}
+  .gring .center{position:absolute;inset:0;display:grid;place-items:center;text-align:center}
+  .gring .center .num{font-size:26px}
+  .gring .center .num .sub{font-size:.5em;color:var(--text-faint)}
+  .gym .foot{color:var(--text-dim);font-size:14px;font-weight:400}
 
   /* hero gauge */
   .hero{align-items:center;justify-content:center;text-align:center;gap:6px;
-    background:linear-gradient(165deg,rgba(255,255,255,.07),rgba(255,255,255,.02))}
+    background:linear-gradient(165deg,rgba(255,255,255,.08),rgba(255,255,255,.02))}
   .hero .iconrow{display:flex;gap:7px;flex-wrap:wrap;justify-content:center;margin-bottom:6px}
   .hero .ic{width:30px;height:30px;border-radius:var(--r-chip);display:grid;place-items:center;font-size:13px;
     background:rgba(255,255,255,.07);border:1px solid var(--glass-line);opacity:.7}
@@ -98,28 +102,34 @@
   .gwrap{position:relative}
   .gval{position:absolute;left:0;right:0;top:46%;transform:translateY(-50%)}
   .gval .num{font-size:clamp(40px,4.4vw,54px)}
-  .gval .pct{font-size:.5em;color:var(--text-faint);font-weight:700}
-  .gcap{font-size:18px;font-weight:700;margin-top:2px}
-  .gsub{font-size:12px;color:var(--text-faint);font-weight:600;margin-bottom:6px}
+  .gval .pct{font-size:.5em;color:var(--text-faint);font-weight:400}
+  .gcap{font-size:18px;font-weight:500;margin-top:2px}
+  .gsub{font-size:12px;color:var(--text-faint);font-weight:400;margin-bottom:6px}
 
-  /* walk */
-  .walk .body{display:flex;align-items:center;gap:22px}
+  /* walk — ring + 7-day history */
+  .walk .body{display:flex;align-items:center;gap:20px}
   .ring{flex:0 0 auto}
-  .walk .state{font-size:30px;font-weight:800}
+  .walk .state{font-size:28px;font-weight:500}
   .walk .state.done{color:var(--good)}
-  .walk .sub{color:var(--text-faint);font-size:14px;font-weight:600;margin-top:4px}
-  .walk .streak{margin-left:auto;text-align:right}
-  .walk .streak .num{font-size:34px}
-  .walk .streak .lbl{font-size:12px;color:var(--text-faint);font-weight:600;margin-top:2px}
+  .walk .sub{color:var(--text-faint);font-size:13px;font-weight:400;margin-top:4px}
+  .week{display:flex;gap:7px;margin-left:auto;text-align:center}
+  .week .d{display:flex;flex-direction:column;align-items:center;gap:6px}
+  .week .dot{width:11px;height:11px;border-radius:50%;background:rgba(255,255,255,.12)}
+  .week .dot.on{background:linear-gradient(150deg,var(--ca),var(--cb))}
+  .week .dot.today{outline:2px solid rgba(255,255,255,.5);outline-offset:2px}
+  .week .dl{font-size:10px;color:var(--text-faint);text-transform:uppercase;font-weight:400}
+  .walk .streak{display:flex;flex-direction:column;align-items:flex-start}
+  .walk .streak .num{font-size:30px}
+  .walk .streak .lbl{font-size:12px;color:var(--text-faint);font-weight:400;margin-top:2px}
 
   /* movement clock */
-  .bars{display:flex;align-items:flex-end;gap:4px;height:58px;margin-bottom:6px}
+  .bars{display:flex;align-items:flex-end;gap:4px;height:56px;margin-bottom:6px}
   .bars > span{flex:1;background:rgba(255,255,255,.12);border-radius:var(--r-el) var(--r-el) 0 0;min-height:2px;transition:height .65s cubic-bezier(.34,1.25,.64,1)}
-  .bars > span.peak{background:linear-gradient(180deg,var(--accent-2),var(--accent))}
+  .bars > span.peak{background:linear-gradient(180deg,var(--cb),var(--ca))}
   .bars > span.now{outline:2px solid rgba(255,255,255,.45);outline-offset:1px}
-  .axis{display:flex;justify-content:space-between;font-size:11px;color:var(--text-faint);font-weight:600;margin-bottom:12px}
-  .clock .foot{color:var(--text-dim);font-size:14px;font-weight:600}
-  .clock .foot b{color:var(--accent-2)}
+  .axis{display:flex;justify-content:space-between;font-size:11px;color:var(--text-faint);font-weight:400;margin-bottom:12px}
+  .clock .foot{color:var(--text-dim);font-size:14px;font-weight:400}
+  .clock .foot b{color:var(--accent-2);font-weight:500}
 
   .stale{display:none;margin:14px 4px 0;font-size:12px;color:var(--text-faint);text-align:center}
   .stale.show{display:block}
@@ -130,19 +140,17 @@
   }
   @media (max-width:560px){ .grid>*{grid-column:1 / -1 !important} }
 
-  /* cross-fade between syncs (View Transitions) — the Shortcut reopens the URL */
   @view-transition{ navigation:auto; }
-  /* signature enter: fade + scale + blur, staggered */
   .card{opacity:0;transform:translateY(10px) scale(.985);filter:blur(7px);animation:rise .55s cubic-bezier(.22,.85,.3,1) forwards}
   .grid>.card:nth-child(2){animation-delay:.06s}.grid>.card:nth-child(3){animation-delay:.12s}
   .grid>.card:nth-child(4){animation-delay:.18s}.grid>.card:nth-child(5){animation-delay:.24s}.grid>.card:nth-child(6){animation-delay:.3s}
   @keyframes rise{to{opacity:1;transform:none;filter:blur(0)}}
   @media (prefers-reduced-motion:reduce){
-    .card{animation:none;opacity:1;transform:none;filter:none}body::before{animation:none}*{transition:none!important}
+    .card{animation:none;opacity:1;transform:none;filter:none}#sky{transition:none}*{transition:none!important}
     ::view-transition-old(*),::view-transition-new(*){animation:none!important}
   }
 
-  /* celebration moments — fire once per real event (see JS) */
+  /* celebration moments — fire once per real event */
   .ring.celebrate{animation:ringPulse .85s cubic-bezier(.2,.8,.3,1) .25s}
   @keyframes ringPulse{0%,100%{filter:none;transform:scale(1)}45%{filter:drop-shadow(0 0 12px var(--good));transform:scale(1.07)}}
   .hero.celebrate{animation:cardGlow 1.5s ease-out .3s}
@@ -153,6 +161,11 @@
 </style>
 </head>
 <body>
+  <video id="bgvideo" autoplay muted loop playsinline poster="assets/meadow.jpg">
+    <source src="assets/bg.mp4" type="video/mp4" />
+  </video>
+  <div id="sky"></div>
+
   <header>
     <div>
       <div class="date" id="date">—</div>
@@ -166,24 +179,36 @@
     <section class="card activity">
       <div class="chead"><div class="chip">🏃</div><div class="ctitle">Activity</div><div class="tag">Today</div></div>
       <div class="row"><span class="num big" id="steps">0</span><span class="unit" id="stepsGoal">/ 8,000</span></div>
-      <div class="mini" id="mini"></div>
+      <svg class="chart" id="actChart" viewBox="0 0 100 50" preserveAspectRatio="none" aria-hidden="true"></svg>
       <div class="dist">Distance <b id="dist">—</b> km</div>
     </section>
 
     <!-- SLEEP -->
     <section class="card sleep">
       <div class="chead"><div class="chip">🌙</div><div class="ctitle">Sleep</div><div class="tag">Last 7 nights</div></div>
-      <div class="row"><span class="num big" id="sleepH">—</span><span class="unit">h</span><span class="num" id="sleepM" style="font-size:22px;color:var(--text-dim)"></span></div>
-      <svg class="spark" id="sleepSpark" viewBox="0 0 200 54" preserveAspectRatio="none" aria-hidden="true"></svg>
+      <div class="row"><span class="num big" id="sleepH">—</span><span class="unit">h</span><span class="num" id="sleepM" style="font-size:22px;color:var(--text-dim)"></span><span class="delta" id="sleepDelta" style="margin-left:auto"></span></div>
+      <svg class="chart" id="sleepChart" viewBox="0 0 100 50" preserveAspectRatio="none" aria-hidden="true"></svg>
       <div class="note">Estimated · charging + do not disturb</div>
     </section>
 
     <!-- GYM -->
     <section class="card gym">
       <div class="chead"><div class="chip">🏋️</div><div class="ctitle">Gym</div><div class="tag">This week</div></div>
-      <div class="num big"><span id="gym">0</span><span class="sub"> / <span id="gymGoal">5</span></span></div>
-      <div class="pips" id="pips"></div>
-      <div class="foot" id="gymFoot">—</div>
+      <div class="body">
+        <div class="gring">
+          <svg width="104" height="104" viewBox="0 0 104 104" aria-hidden="true">
+            <circle cx="52" cy="52" r="44" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="7"/>
+            <circle id="gymArc" cx="52" cy="52" r="44" fill="none" stroke="url(#gymg)" stroke-width="7" stroke-linecap="round"
+                    transform="rotate(-90 52 52)" pathLength="100" stroke-dasharray="0 100" style="transition:stroke-dasharray .8s cubic-bezier(.2,.8,.3,1)"/>
+            <g id="gymTicks"></g>
+            <defs><linearGradient id="gymg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--c-gym)"/><stop offset="1" stop-color="var(--c-gym2)"/></linearGradient></defs>
+          </svg>
+          <div class="center"><div class="num"><span id="gym">0</span><span class="sub">/<span id="gymGoal">5</span></span></div></div>
+        </div>
+        <div>
+          <div class="foot" id="gymFoot">—</div>
+        </div>
+      </div>
     </section>
 
     <!-- HERO GAUGE -->
@@ -211,16 +236,18 @@
     <section class="card walk">
       <div class="chead"><div class="chip">🚶</div><div class="ctitle">Daily walk</div><div class="tag">Today</div></div>
       <div class="body">
-        <svg class="ring" id="walkRing" width="86" height="86" viewBox="0 0 86 86" aria-hidden="true">
-          <circle cx="43" cy="43" r="37" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="6"/>
-          <circle id="walkArc" cx="43" cy="43" r="37" fill="none" stroke="var(--accent)" stroke-width="6"
-                  stroke-linecap="round" transform="rotate(-90 43 43)"
-                  stroke-dasharray="232.5" stroke-dashoffset="232.5" style="transition:stroke-dashoffset .7s cubic-bezier(.2,.7,.2,1)"/>
+        <svg class="ring" id="walkRing" width="80" height="80" viewBox="0 0 80 80" aria-hidden="true">
+          <circle cx="40" cy="40" r="34" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="6"/>
+          <circle id="walkArc" cx="40" cy="40" r="34" fill="none" stroke="url(#walkg)" stroke-width="6"
+                  stroke-linecap="round" transform="rotate(-90 40 40)"
+                  stroke-dasharray="213.6" stroke-dashoffset="213.6" style="transition:stroke-dashoffset .7s cubic-bezier(.2,.7,.2,1)"/>
+          <defs><linearGradient id="walkg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--c-walk)"/><stop offset="1" stop-color="var(--c-walk2)"/></linearGradient></defs>
         </svg>
         <div>
           <div class="state" id="walkState">Open</div>
           <div class="sub" id="walkSub">—</div>
         </div>
+        <div class="week" id="walkWeek"></div>
         <div class="streak"><div class="num" id="streak">0</div><div class="lbl" id="consistency">—</div></div>
       </div>
     </section>
@@ -236,20 +263,18 @@
   <div class="stale" id="stale"></div>
 
 <script>
-// ---- config (edit your goals) ------------------------------------------
+// ---- config ------------------------------------------------------------
 const GOAL = { gym:5, steps:8000, sleep:7.5, walkSteps:7000 };
-
-// ---- helpers -----------------------------------------------------------
 const $ = id => document.getElementById(id);
 const todayKey = d => { const x=d||new Date(); return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0'); };
 const num = n => Number(n)||0;
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-function countUp(el, to, fmt){ fmt=fmt||(v=>Math.round(v));
-  if(reduce || !to){ el.textContent = fmt(to); return; }
-  const start=performance.now(), dur=900;
-  (function tick(t){ const p=Math.min(1,(t-start)/dur), e=1-Math.pow(1-p,3);
-    el.textContent=fmt(to*e); if(p<1) requestAnimationFrame(tick); })(start);
+function countUp(el,to,fmt){ fmt=fmt||(v=>Math.round(v));
+  if(reduce||!to){ el.textContent=fmt(to); return; }
+  const start=performance.now(),dur=900;
+  (function tick(t){ const p=Math.min(1,(t-start)/dur),e=1-Math.pow(1-p,3); el.textContent=fmt(to*e); if(p<1) requestAnimationFrame(tick); })(start);
 }
+function weekId(d){ const x=new Date(d); const off=(x.getDay()+6)%7; x.setDate(x.getDate()-off); return todayKey(x); }
 
 // ---- ingest ------------------------------------------------------------
 const p = new URLSearchParams(location.search);
@@ -273,13 +298,10 @@ if (p.toString().length>0){
   try{ localStorage.setItem('stride', JSON.stringify(store)); }catch(e){}
 }
 
-function weekId(d){ const x=new Date(d); const off=(x.getDay()+6)%7; x.setDate(x.getDate()-off); return todayKey(x); }
-
 // ---- view model --------------------------------------------------------
 const day = store.days[key] || {};
 const gym = (store.gymWeek && store.gymWeek.week===weekId(now)) ? store.gymWeek.count : 0;
 const steps = num(day.steps), dist = num(day.dist), sleep = day.sleep||0, walkDone = !!day.walk;
-
 function walkStreak(){ let n=0; const d=new Date(now);
   if(!store.days[todayKey(d)] || !store.days[todayKey(d)].walk) d.setDate(d.getDate()-1);
   for(;;){ const r=store.days[todayKey(d)]; if(r&&r.walk){n++;d.setDate(d.getDate()-1);} else break; } return n; }
@@ -288,54 +310,72 @@ function weekly(){ let done=0; const elapsed=((now.getDay()+6)%7)+1;
     const r=store.days[todayKey(d)]; if(r&&r.walk) done++; } return {done, elapsed}; }
 const streak = walkStreak(), wc = weekly();
 
-// ---- render: header ----------------------------------------------------
+// ---- header ------------------------------------------------------------
 $('date').textContent = now.toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'});
 
-// activity
+// ---- activity: cumulative steps area toward goal -----------------------
 countUp($('steps'), steps, v=>Math.round(v).toLocaleString());
 $('stepsGoal').textContent = '/ '+GOAL.steps.toLocaleString();
 if(dist) countUp($('dist'), dist, v=>v.toFixed(1)); else $('dist').textContent='—';
-(function(){ const m=$('mini'); m.innerHTML=''; const h=day.hours||[]; const max=Math.max(1,...h.slice(6,24));
-  for(let x=6;x<=23;x++){ const s=document.createElement('span'); if((h[x]||0)>0) s.className='on';
-    m.appendChild(s); requestAnimationFrame(()=> s.style.height=Math.round(((h[x]||0)/max)*100)+'%'); } })();
+(function(){ const h=day.hours||[]; const cum=[]; let s=0;
+  for(let x=6;x<=23;x++){ s+=num(h[x]); cum.push(s); }
+  const max=Math.max(GOAL.steps, s, 1);
+  drawArea($('actChart'), cum, max, 'actg', GOAL.steps/max);
+})();
 
-// sleep
+// ---- sleep: 7-night area + weekly delta --------------------------------
 $('sleepH').textContent = sleep? Math.floor(sleep):'—';
 $('sleepM').textContent = sleep? String(Math.round((sleep%1)*60)).padStart(2,'0')+'m':'';
-drawSpark($('sleepSpark'), (function(){ const o=[]; for(let i=6;i>=0;i--){ const d=new Date(now); d.setDate(d.getDate()-i);
-  const r=store.days[todayKey(d)]; o.push(r&&r.sleep?r.sleep:0); } return o; })());
+(function(){
+  const series=[]; for(let i=6;i>=0;i--){ const d=new Date(now); d.setDate(d.getDate()-i);
+    const r=store.days[todayKey(d)]; series.push(r&&r.sleep?r.sleep:0); }
+  drawArea($('sleepChart'), series, Math.max(GOAL.sleep,...series,1), 'sleepg', null, true);
+  // delta: this 7 nights avg vs previous 7
+  const avg=(a,b)=>{let s=0,n=0; for(let i=a;i<b;i++){const d=new Date(now);d.setDate(d.getDate()-i);const r=store.days[todayKey(d)]; if(r&&r.sleep){s+=r.sleep;n++;}} return n?s/n:null;};
+  const tw=avg(0,7), pw=avg(7,14);
+  if(tw!=null&&pw!=null){ const m=Math.round((tw-pw)*60); const el=$('sleepDelta');
+    el.textContent=(m>=0?'+':'')+m+'m vs last week'; el.classList.toggle('down', m<0); }
+})();
 
-// gym
+// ---- gym: segmented progress ring --------------------------------------
 countUp($('gym'), gym); $('gymGoal').textContent = GOAL.gym;
-$('gymFoot').textContent = gym>=GOAL.gym ? "That’s the week." : (GOAL.gym-gym)+" to go this week";
-(function(){ const c=$('pips'); for(let i=0;i<GOAL.gym;i++){ const e=document.createElement('div'); e.className='pip'+(i<gym?' on':''); c.appendChild(e);} })();
+$('gymFoot').textContent = gym>=GOAL.gym ? "That’s the week." : (GOAL.gym-gym)+" to go";
+requestAnimationFrame(()=> $('gymArc').style.strokeDasharray = Math.min(100, gym/GOAL.gym*100)+' 100');
+(function(){ const g=$('gymTicks'); let t=''; // 5 segment dividers
+  for(let i=0;i<GOAL.gym;i++){ const a=-Math.PI/2 + i*(2*Math.PI/GOAL.gym);
+    const x1=52+Math.cos(a)*40.5,y1=52+Math.sin(a)*40.5,x2=52+Math.cos(a)*47.5,y2=52+Math.sin(a)*47.5;
+    t+=`<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="rgba(12,13,16,.8)" stroke-width="3"/>`; }
+  g.innerHTML=t; })();
 
-// hero gauge — honest weekly consistency from real behaviours
+// ---- hero gauge --------------------------------------------------------
 (function(){
   let sum7=0,d7=0; for(let i=0;i<wc.elapsed;i++){ const d=new Date(now); d.setDate(d.getDate()-i);
     const r=store.days[todayKey(d)]; if(r&&r.steps!=null){ sum7+=r.steps; d7++; } }
-  const gymPart=Math.min(1,gym/GOAL.gym), walkPart=wc.elapsed?wc.done/wc.elapsed:0,
-        stepPart=d7?Math.min(1,(sum7/d7)/GOAL.steps):0;
+  const gymPart=Math.min(1,gym/GOAL.gym), walkPart=wc.elapsed?wc.done/wc.elapsed:0, stepPart=d7?Math.min(1,(sum7/d7)/GOAL.steps):0;
   const score=Math.round(100*(0.4*gymPart+0.4*walkPart+0.2*stepPart));
   countUp($('score'), score);
   $('scoreCap').textContent = score>=80?'Strong week':score>=55?'On track':score>=30?'Building':'Early days';
   requestAnimationFrame(()=> $('gaugeArc').style.strokeDasharray = score+' 100');
-  const ticks=$('ticks'); const N=44; let t='';
-  for(let i=0;i<=N;i++){ const a=Math.PI*(1 - i/N); const x=100+Math.cos(a)*92, y=108-Math.sin(a)*92;
-    const x2=100+Math.cos(a)*84, y2=108-Math.sin(a)*84;
+  let t=''; const N=44; for(let i=0;i<=N;i++){ const a=Math.PI*(1-i/N);
+    const x=100+Math.cos(a)*92,y=108-Math.sin(a)*92,x2=100+Math.cos(a)*84,y2=108-Math.sin(a)*84;
     t+=`<line x1="${x.toFixed(1)}" y1="${y.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="rgba(255,255,255,.08)" stroke-width="1.4"/>`; }
-  ticks.innerHTML=t;
+  $('ticks').innerHTML=t;
 })();
 
-// walk
+// ---- walk: ring + 7-day history ----------------------------------------
 $('walkState').textContent = walkDone?'Done':'Open';
 $('walkState').classList.toggle('done', walkDone);
 $('walkSub').textContent = walkDone?'Nice. Filled for today.':'A walk fills the ring.';
 $('streak').textContent = streak;
 $('consistency').textContent = wc.done+'/'+wc.elapsed+' this wk';
-requestAnimationFrame(()=>{ $('walkArc').style.strokeDashoffset = walkDone?0:232.5; if(walkDone) $('walkArc').style.stroke='var(--good)'; });
+requestAnimationFrame(()=>{ $('walkArc').style.strokeDashoffset = walkDone?0:213.6; if(walkDone) $('walkArc').style.stroke='var(--good)'; });
+(function(){ const w=$('walkWeek'); const init=['M','T','W','T','F','S','S']; let html='';
+  for(let i=6;i>=0;i--){ const d=new Date(now); d.setDate(d.getDate()-i);
+    const r=store.days[todayKey(d)]; const on=r&&r.walk; const today=i===0;
+    html+=`<div class="d"><div class="dot${on?' on':''}${today?' today':''}"></div><div class="dl">${init[(d.getDay()+6)%7]}</div></div>`; }
+  w.innerHTML=html; })();
 
-// movement clock -----------------------------------------------------------
+// ---- movement clock ----------------------------------------------------
 function fmtHour(h){ const ap=h<12?'am':'pm'; let x=h%12; if(x===0)x=12; return x+ap; }
 (function(){
   const START=6,END=23; const sum=new Array(24).fill(0); let days=0;
@@ -358,7 +398,7 @@ function fmtHour(h){ const ap=h<12?'am':'pm'; let x=h%12; if(x===0)x=12; return 
   ins.innerHTML=line;
 })();
 
-// status line ------------------------------------------------------------
+// ---- status ------------------------------------------------------------
 (function(){ const pool=[];
   if(gym>=GOAL.gym) pool.push("That’s the week. <b>"+gym+" sessions.</b>");
   if(!walkDone) pool.push("Good day to move. <b>Walk’s still open.</b>");
@@ -368,7 +408,7 @@ function fmtHour(h){ const ap=h<12?'am':'pm'; let x=h%12; if(x===0)x=12; return 
   if(!pool.length) pool.push("Fresh day. <b>One walk to start.</b>");
   $('status').innerHTML = pool[ now.getDate() % pool.length ]; })();
 
-// celebration moments — fire once per real event ------------------------
+// ---- celebration moments (once per event) ------------------------------
 (function(){
   store.celebrated = store.celebrated || {}; const c = store.celebrated; const wk = weekId(now);
   const fireWalk = walkDone && c.walk !== key;
@@ -384,17 +424,40 @@ function fmtHour(h){ const ap=h<12?'am':'pm'; let x=h%12; if(x===0)x=12; return 
   }
 })();
 
-// staleness --------------------------------------------------------------
+// ---- staleness ---------------------------------------------------------
 if(store.updated){ const hrs=(Date.now()-store.updated)/3.6e6;
   if(hrs>20){ const s=$('stale'); s.textContent='Last synced '+Math.round(hrs)+'h ago — open the iPhone shortcut to refresh.'; s.classList.add('show'); } }
 
-// sparkline --------------------------------------------------------------
-function drawSpark(svg,data){ const W=200,H=54,pad=5,max=Math.max(GOAL.sleep,...data,1);
-  const xs=i=>pad+i*((W-2*pad)/(data.length-1)), ys=v=>H-pad-(v/max)*(H-2*pad);
-  let d='',started=false; data.forEach((v,i)=>{ if(v>0){ d+=(started?'L':'M')+xs(i).toFixed(1)+' '+ys(v).toFixed(1)+' '; started=true; } });
-  svg.innerHTML=(d?`<path d="${d}" fill="none" stroke="url(#sg)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`:'')
-    +`<defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="var(--accent)"/><stop offset="1" stop-color="var(--accent-2)"/></linearGradient></defs>`
-    +data.map((v,i)=> v>0?`<circle cx="${xs(i).toFixed(1)}" cy="${ys(v).toFixed(1)}" r="${i===data.length-1?3:2}" fill="${i===data.length-1?'var(--accent-2)':'var(--text-faint)'}"/>`:'').join('');
+// ---- time-of-day sky (the background acts as a clock) ------------------
+function setSky(){
+  // [hour, [r,g,b,a]] top-of-sky tint stops across the day
+  const S=[[0,[8,12,30,.78]],[6,[55,52,92,.5]],[8,[255,150,95,.3]],[11,[150,180,222,.14]],
+           [15,[255,205,150,.16]],[18,[240,110,60,.38]],[20,[150,55,70,.42]],[22,[22,24,52,.66]],[24,[8,12,30,.78]]];
+  const h=now.getHours()+now.getMinutes()/60;
+  let a=S[0],b=S[S.length-1];
+  for(let i=0;i<S.length-1;i++){ if(h>=S[i][0]&&h<=S[i+1][0]){ a=S[i]; b=S[i+1]; break; } }
+  const t=(h-a[0])/((b[0]-a[0])||1);
+  const c=a[1].map((v,i)=> v + (b[1][i]-v)*t);
+  document.documentElement.style.setProperty('--sky-top', `rgba(${c[0]|0},${c[1]|0},${c[2]|0},${c[3].toFixed(3)})`);
+}
+setSky();
+if(!reduce){ setInterval(()=>{ now.setTime(Date.now()); setSky(); }, 60000); } // it lives as a constant iPad background
+
+// ---- shared area-chart drawer ------------------------------------------
+function drawArea(svg, vals, max, gid, goalFrac, dots){
+  const W=100,H=50,pad=3;
+  const xs=i=> pad + i*((W-2*pad)/((vals.length-1)||1));
+  const ys=v=> H-pad - (Math.min(v,max)/max)*(H-2*pad);
+  let line='', started=false;
+  vals.forEach((v,i)=>{ const X=xs(i).toFixed(1),Y=ys(v).toFixed(1); line+=(started?'L':'M')+X+' '+Y+' '; started=true; });
+  const area = vals.length? `M${xs(0).toFixed(1)} ${H-pad} `+vals.map((v,i)=>'L'+xs(i).toFixed(1)+' '+ys(v).toFixed(1)).join(' ')+` L${xs(vals.length-1).toFixed(1)} ${H-pad} Z` : '';
+  const goal = goalFrac!=null ? `<line x1="${pad}" y1="${ys(goalFrac*max).toFixed(1)}" x2="${W-pad}" y2="${ys(goalFrac*max).toFixed(1)}" stroke="rgba(255,255,255,.22)" stroke-width="1" stroke-dasharray="3 3"/>` : '';
+  const pts = dots ? vals.map((v,i)=> v>0?`<circle cx="${xs(i).toFixed(1)}" cy="${ys(v).toFixed(1)}" r="${i===vals.length-1?2.2:1.4}" fill="${i===vals.length-1?'var(--cb)':'rgba(255,255,255,.5)'}"/>`:'').join('') : '';
+  svg.innerHTML =
+    `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--ca)" stop-opacity=".45"/><stop offset="1" stop-color="var(--ca)" stop-opacity="0"/></linearGradient></defs>`
+    + (area?`<path d="${area}" fill="url(#${gid})"/>`:'') + goal
+    + (line?`<path d="${line}" fill="none" stroke="var(--cb)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`:'')
+    + pts;
 }
 </script>
 </body>
