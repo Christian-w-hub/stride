@@ -29,6 +29,14 @@
       linear-gradient(165deg, #14161a 0%, #0c0d10 55%, #090a0c 100%);
     background-attachment:fixed;
   }
+  /* living gradient ground — drifts slowly behind the frosted glass */
+  body::before{ content:""; position:fixed; inset:-25%; z-index:-1; pointer-events:none;
+    background:
+      radial-gradient(38% 38% at 28% 32%, rgba(255,106,44,.12), transparent 70%),
+      radial-gradient(42% 42% at 76% 66%, rgba(70,150,220,.11), transparent 70%),
+      radial-gradient(34% 34% at 62% 18%, rgba(255,166,61,.09), transparent 70%);
+    filter:blur(34px); animation:drift 28s ease-in-out infinite alternate; }
+  @keyframes drift{ 0%{transform:translate(-3%,-2%) scale(1)} 50%{transform:translate(3%,2%) scale(1.08)} 100%{transform:translate(-2%,3%) scale(1.03)} }
   .num{font-weight:800;line-height:.92}
   .label{font-size:12px;text-transform:uppercase;letter-spacing:.1em;font-weight:600;color:var(--text-dim)}
   .unit{color:var(--text-faint);font-weight:600}
@@ -126,7 +134,7 @@
   .grid>.card:nth-child(2){animation-delay:.05s}.grid>.card:nth-child(3){animation-delay:.1s}
   .grid>.card:nth-child(4){animation-delay:.15s}.grid>.card:nth-child(5){animation-delay:.2s}.grid>.card:nth-child(6){animation-delay:.25s}
   @keyframes rise{to{opacity:1;transform:none}}
-  @media (prefers-reduced-motion:reduce){.card{animation:none;opacity:1;transform:none}*{transition:none!important}}
+  @media (prefers-reduced-motion:reduce){.card{animation:none;opacity:1;transform:none}body::before{animation:none}*{transition:none!important}}
 </style>
 </head>
 <body>
@@ -220,6 +228,13 @@ const GOAL = { gym:5, steps:8000, sleep:7.5, walkSteps:7000 };
 const $ = id => document.getElementById(id);
 const todayKey = d => { const x=d||new Date(); return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0'); };
 const num = n => Number(n)||0;
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function countUp(el, to, fmt){ fmt=fmt||(v=>Math.round(v));
+  if(reduce || !to){ el.textContent = fmt(to); return; }
+  const start=performance.now(), dur=900;
+  (function tick(t){ const p=Math.min(1,(t-start)/dur), e=1-Math.pow(1-p,3);
+    el.textContent=fmt(to*e); if(p<1) requestAnimationFrame(tick); })(start);
+}
 
 // ---- ingest ------------------------------------------------------------
 const p = new URLSearchParams(location.search);
@@ -262,9 +277,9 @@ const streak = walkStreak(), wc = weekly();
 $('date').textContent = now.toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'});
 
 // activity
-$('steps').textContent = steps.toLocaleString();
+countUp($('steps'), steps, v=>Math.round(v).toLocaleString());
 $('stepsGoal').textContent = '/ '+GOAL.steps.toLocaleString();
-$('dist').textContent = dist? dist.toFixed(1):'—';
+if(dist) countUp($('dist'), dist, v=>v.toFixed(1)); else $('dist').textContent='—';
 (function(){ const m=$('mini'); m.innerHTML=''; const h=day.hours||[]; const max=Math.max(1,...h.slice(6,24));
   for(let x=6;x<=23;x++){ const s=document.createElement('span'); if((h[x]||0)>0) s.className='on';
     m.appendChild(s); requestAnimationFrame(()=> s.style.height=Math.round(((h[x]||0)/max)*100)+'%'); } })();
@@ -276,7 +291,7 @@ drawSpark($('sleepSpark'), (function(){ const o=[]; for(let i=6;i>=0;i--){ const
   const r=store.days[todayKey(d)]; o.push(r&&r.sleep?r.sleep:0); } return o; })());
 
 // gym
-$('gym').textContent = gym; $('gymGoal').textContent = GOAL.gym;
+countUp($('gym'), gym); $('gymGoal').textContent = GOAL.gym;
 $('gymFoot').textContent = gym>=GOAL.gym ? "That’s the week." : (GOAL.gym-gym)+" to go this week";
 (function(){ const c=$('pips'); for(let i=0;i<GOAL.gym;i++){ const e=document.createElement('div'); e.className='pip'+(i<gym?' on':''); c.appendChild(e);} })();
 
@@ -287,7 +302,7 @@ $('gymFoot').textContent = gym>=GOAL.gym ? "That’s the week." : (GOAL.gym-gym)
   const gymPart=Math.min(1,gym/GOAL.gym), walkPart=wc.elapsed?wc.done/wc.elapsed:0,
         stepPart=d7?Math.min(1,(sum7/d7)/GOAL.steps):0;
   const score=Math.round(100*(0.4*gymPart+0.4*walkPart+0.2*stepPart));
-  $('score').textContent=score;
+  countUp($('score'), score);
   $('scoreCap').textContent = score>=80?'Strong week':score>=55?'On track':score>=30?'Building':'Early days';
   requestAnimationFrame(()=> $('gaugeArc').style.strokeDasharray = score+' 100');
   const ticks=$('ticks'); const N=44; let t='';
