@@ -212,6 +212,10 @@
   .heat.yr .c{width:9px;height:9px;border-radius:2px}
   .insight{color:var(--text-dim);font-size:14px;font-weight:400;margin-top:14px}
   .insight b{color:var(--cb);font-weight:500}
+  .confetti{position:fixed;inset:0 0 auto 0;height:0;z-index:60;pointer-events:none;overflow:visible}
+  .confetti i{position:absolute;top:-14px;width:8px;height:12px;border-radius:2px;opacity:.95;animation:fall 2.4s cubic-bezier(.3,.6,.5,1) forwards}
+  @keyframes fall{to{transform:translateY(104vh) rotate(calc(var(--rx,1)*720deg));opacity:0}}
+  @media (prefers-reduced-motion:reduce){.confetti{display:none}}
 </style>
 </head>
 <body>
@@ -379,7 +383,12 @@ function walkStreak(){ let n=0; const d=new Date(now);
 function weekly(){ let done=0; const elapsed=((now.getDay()+6)%7)+1;
   for(let i=0;i<elapsed;i++){ const d=new Date(now); d.setDate(d.getDate()-i);
     const r=store.days[todayKey(d)]; if(r&&r.walk) done++; } return {done, elapsed}; }
-const streak = walkStreak(), wc = weekly();
+// rest-aware streak: a single rest day is forgiven, two consecutive misses break it
+function streakGrace(){ let n=0,miss=0; const d=new Date(now);
+  if(!(store.days[todayKey(d)]&&store.days[todayKey(d)].walk)) d.setDate(d.getDate()-1);
+  for(let i=0;i<3000;i++){ const r=store.days[todayKey(d)]; if(r&&r.walk){n++;miss=0;} else {miss++; if(miss>1)break;} d.setDate(d.getDate()-1); }
+  return n; }
+const streak = streakGrace(), wc = weekly();
 
 // ---- header ------------------------------------------------------------
 $('date').textContent = now.toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'});
@@ -625,9 +634,9 @@ function historyStats(){ const ks=Object.keys(store.days); let walkDays=0,bestSt
   const wk={}; ks.forEach(k=>{ const w=weekId(new Date(k+'T00:00')); wk[w]=(wk[w]||0)+num(store.days[k].steps); });
   const bestWeekSteps=Math.max(0,...Object.values(wk));
   const gyms=Object.values(store.gymWeeks||{}).map(Number); if(store.gymWeek) gyms.push(num(store.gymWeek.count));
-  return {walkDays,bestSteps,totalSteps,totalGym:gyms.reduce((a,b)=>a+b,0),bestStreak:longestStreak(),bestWeekSteps,bestGymWeek:Math.max(0,...gyms),gymGoalWeeks:gyms.filter(c=>c>=GOAL.gym).length}; }
+  return {walkDays,bestSteps,totalSteps,totalGym:gyms.reduce((a,b)=>a+b,0),bestStreak:longestStreakGrace(),bestWeekSteps,bestGymWeek:Math.max(0,...gyms),gymGoalWeeks:gyms.filter(c=>c>=GOAL.gym).length}; }
 function trophyShelf(){ const h=historyStats(); const got=TROPHIES.filter(t=>t.test(h)).length;
-  const rank=got>=15?'Relentless':got>=11?'Athlete':got>=7?'Strider':got>=3?'Mover':'Getting started';
+  const rank=rankOf(got);
   return `<div class="ovrow" style="margin-top:20px"><span>Trophy shelf · <b>${rank}</b></span><span style="color:var(--text-faint);font-size:12px">${got}/${TROPHIES.length} earned</span></div>`
     +'<div class="shelf">'+TROPHIES.map(t=>{ const on=t.test(h); return `<div class="trophy${on?'':' locked'}"><div class="te">${t.e}</div><div class="tl">${t.t}</div></div>`; }).join('')+'</div>'; }
 // honest insights (beyond the stock Health app), computed from history
@@ -639,6 +648,37 @@ function monthKm(){ const n=new Date(); const pref=n.getFullYear()+'-'+String(n.
   for(const k in store.days){ if(k.indexOf(pref)===0) km+=num(store.days[k].dist); } return km; }
 function insight(t){ return `<div class="insight">${t}</div>`; }
 function actIns(){ return Object.keys(store.days).length>=5? insight('You move most on <b>'+bestWeekday()+'</b>.') : ''; }
+function rankOf(g){ return g>=15?'Relentless':g>=11?'Athlete':g>=7?'Strider':g>=3?'Mover':'Getting started'; }
+function longestStreakGrace(){ const ks=Object.keys(store.days).sort(); if(!ks.length) return 0;
+  let best=0,cur=0,miss=0; const end=new Date();
+  for(let d=new Date(ks[0]+'T00:00'); d<=end; d.setDate(d.getDate()+1)){ const r=store.days[todayKey(d)];
+    if(r&&r.walk){ cur++; miss=0; if(cur>best)best=cur; } else { miss++; if(miss>1){ cur=0; miss=0; } } }
+  return best; }
+function weekRecap(){ const n=new Date(); let walks=0,steps=0; const el=((n.getDay()+6)%7)+1;
+  for(let i=0;i<el;i++){ const d=new Date(n); d.setDate(d.getDate()-i); const r=store.days[todayKey(d)]; if(r){ if(r.walk)walks++; steps+=num(r.steps); } }
+  let ls=0; for(let i=el;i<el+7;i++){ const d=new Date(n); d.setDate(d.getDate()-i); const r=store.days[todayKey(d)]; if(r) ls+=num(r.steps); }
+  const g=(store.gymWeek&&store.gymWeek.week===weekId(n))?store.gymWeek.count:0;
+  return {walks,gym:g,steps,delta: ls?Math.round((steps-ls)/ls*100):null}; }
+function monthChallenge(){ const n=new Date(); const tp=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0');
+  const lm=new Date(n.getFullYear(),n.getMonth()-1,1); const lp=lm.getFullYear()+'-'+String(lm.getMonth()+1).padStart(2,'0');
+  let tw=0,ts=0,lw=0,lsm=0; for(const k in store.days){ const r=store.days[k]; if(k.indexOf(tp)===0){ if(r.walk)tw++; ts+=num(r.steps);} else if(k.indexOf(lp)===0){ if(r.walk)lw++; lsm+=num(r.steps);} }
+  return {walks:tw,lastWalks:lw,steps:ts,lastSteps:lsm}; }
+const LANDMARKS=[{km:21,t:'a half-marathon'},{km:42,t:'a marathon'},{km:100,t:'100 km'},{km:170,t:'London–Birmingham'},{km:330,t:'London–Edinburgh'},{km:874,t:'Land’s End → John o’ Groats'},{km:1407,t:'the length of Britain, twice'}];
+function totalKm(){ let km=0; for(const k in store.days) km+=num(store.days[k].dist); return km; }
+function distanceInsight(){ const km=totalKm(); let passed=null,next=null;
+  for(const L of LANDMARKS){ if(km>=L.km) passed=L; else { next=L; break; } }
+  let s='<b>'+Math.round(km).toLocaleString()+' km</b> all-time'; if(passed) s+=' — past '+passed.t; if(next) s+='. '+Math.round(next.km-km)+' km to '+next.t;
+  return insight(s+'.'); }
+function heroExtras(){ const r=weekRecap(), m=monthChallenge();
+  const wk=`${r.walks} walk${r.walks!==1?'s':''} · ${r.gym}/${GOAL.gym} gym · ${Math.round(r.steps/1000)}k steps`+(r.delta!=null?` · <b>${r.delta>=0?'+':''}${r.delta}%</b> vs last week`:'');
+  const mon=`Walks <b>${m.walks}</b> vs ${m.lastWalks} · Steps <b>${Math.round(m.steps/1000)}k</b> vs ${Math.round(m.lastSteps/1000)}k`;
+  const ahead=(m.walks>=m.lastWalks&&m.steps>=m.lastSteps);
+  return `<div class="ovrow" style="margin-top:20px"><span>This week</span></div><div class="insight" style="margin-top:6px">${wk}</div>`
+    +`<div class="ovrow" style="margin-top:16px"><span>This month vs last</span><span style="color:var(--text-faint);font-size:12px">${ahead?'ahead 🎯':'keep going'}</span></div><div class="insight" style="margin-top:6px">${mon}</div>`
+    +distanceInsight(); }
+function confetti(){ if(reduce) return; const c=document.createElement('div'); c.className='confetti'; const cols=['#FF6A2C','#FFA63D','#3FE0A0','#8B9BFF','#FFC24B'];
+  for(let i=0;i<44;i++){ const p=document.createElement('i'); p.style.left=Math.random()*100+'%'; p.style.background=cols[i%5]; p.style.animationDelay=(Math.random()*0.4).toFixed(2)+'s'; p.style.setProperty('--rx',(Math.random()*2-1).toFixed(2)); c.appendChild(p); }
+  document.body.appendChild(c); setTimeout(()=>c.remove(),2800); }
 
 const RANGES={ activity:['14d','12wk','12mo'], sleep:['14d','12wk','12mo'], walk:['8wk','1yr'] };
 const RLABEL={'14d':'14 days','12wk':'12 weeks','12mo':'12 months','8wk':'8 weeks','1yr':'Year'};
@@ -675,7 +715,7 @@ const RENDER={
   walk(range){ range=range||'8wk'; const span=range==='1yr'?364:56;
     const ds=ld(span); const firstDow=(ds[0].d.getDay()+6)%7; let pad=''; for(let i=0;i<firstDow;i++) pad+='<div class="c" style="visibility:hidden"></div>';
     const cells=ds.map(x=>`<div class="c${x.r.walk?' on':''}" title="${x.k}"></div>`).join('');
-    return `<div class="heat${range==='1yr'?' yr':''}">${pad}${cells}</div><div class="ovstats">${stat(streak,'current streak')}${stat(longestStreak(),'longest')}${stat(monthPct()+'%','this month')}</div>`+insight('<b>'+monthKm().toFixed(1)+' km</b> walked this month.'); },
+    return `<div class="heat${range==='1yr'?' yr':''}">${pad}${cells}</div><div class="ovstats">${stat(streak,'current streak')}${stat(longestStreakGrace(),'longest')}${stat(monthPct()+'%','this month')}</div>`+insight('<b>'+monthKm().toFixed(1)+' km</b> walked this month.'); },
   clock(){ const sum=new Array(24).fill(0); let dys=0; for(const k in store.days){ const h=store.days[k].hours; if(h&&h.length===24){ dys++; for(let i=0;i<24;i++) sum[i]+=num(h[i]); } }
     const avg=sum.map(s=>dys?s/dys:0);
     const ranked=[...Array(24).keys()].filter(i=>avg[i]>0).sort((a,b)=>avg[b]-avg[a]).slice(0,3);
@@ -688,7 +728,7 @@ const RENDER={
     const score=Math.round(100*(0.4*gP+0.4*wP+0.2*sP));
     const comp=(l,f,wt,c)=>`<div class="ovrow"><span>${l} · <b>${Math.round(f*100)}%</b></span><span style="color:var(--text-faint);font-size:12px">weight ${wt}</span></div><div class="compbar"><i style="width:${Math.round(f*100)}%;background:${c}"></i></div>`;
     return `<div class="ovstat" style="margin-bottom:10px"><div class="n">${score}%</div><div class="l">weekly consistency</div></div>`
-      +comp('Gym',gP,'40%','var(--c-gym)')+comp('Walks',wP,'40%','var(--c-walk)')+comp('Steps',sP,'20%','var(--c-act)')+trophyShelf(); }
+      +comp('Gym',gP,'40%','var(--c-gym)')+comp('Walks',wP,'40%','var(--c-walk)')+comp('Steps',sP,'20%','var(--c-act)')+heroExtras()+trophyShelf(); }
 };
 
 function ovRender(id,range){ const body=$('ovBody'); const opts=RANGES[id];
@@ -715,6 +755,13 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeOverlay(); }
 });
 (function(){ const ics=document.querySelectorAll('.hero .ic'); const names=['activity','footprints','dumbbell','moon','gauge'];
   ics.forEach((el,i)=>{ if(names[i]) el.innerHTML=icon(names[i],15); }); })();
+
+// surprise: confetti when a new trophy is earned or you rank up (once, per device)
+(function(){ if(silent) return; const h=historyStats(); const got=TROPHIES.filter(t=>t.test(h)).length; const rank=rankOf(got);
+  let seen={}; try{ seen=JSON.parse(localStorage.getItem('strideSeen')||'{}'); }catch(e){}
+  if(got>(seen.trophies||0) || (seen.rank&&seen.rank!==rank)) confetti();
+  if(got!==seen.trophies||rank!==seen.rank){ try{ localStorage.setItem('strideSeen',JSON.stringify({trophies:got,rank})); }catch(e){} }
+})();
 </script>
 </body>
 </html>
