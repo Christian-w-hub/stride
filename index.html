@@ -736,15 +736,16 @@ function confetti(){ if(reduce) return; const c=document.createElement('div'); c
 function trainingDays(){ try{ return +localStorage.getItem('strideDays')||4; }catch(e){ return 4; } }
 const POOL={ biceps:['DB incline curl','DB hammer curl','DB standing curl'], triceps:['DB overhead triceps ext','1-arm overhead ext','Close-grip DB press'],
   lateral:['DB lateral raise','Lean-away lateral raise'], rear:['Pec-deck rear flye','DB prone reverse flye'],
-  calves:['Calf raise machine','Single-leg DB calf raise','Leg-press toe press'], chestiso:['Pec-deck chest press','DB incline press'] };
+  calves:['Calf raise machine','Single-leg DB calf raise','Leg-press toe press'], chestiso:['Pec-deck chest press','DB incline press','Incline chest press machine'],
+  quadiso:['Leg extension','Leg press (deep)','Pendulum squat'], hamcurl:['Seated leg curl','Lying/Nordic ham curl','Romanian deadlift'] };
 function wpick(arr,salt){ const s=weekId(new Date())+salt; let h=0; for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))>>>0; return arr[h%arr.length]; }
 const X=(name,sets,reps,rir,rest)=>({name,sets,reps,rir,rest});
 function session(key){ switch(key){
-  case 'UA': return [X('Barbell bench press',4,'5–7','2–3','2.5–3m'),X('Weighted pull-up',3,'6–9','2','2–3m'),X('Incline chest press machine',3,'8–12','1–2','90s'),X('Seated row machine',3,'8–12','1–2','90s'),X('Shoulder press machine',3,'8–12','1–2','90s'),X(wpick(POOL.biceps,'UAb'),3,'10–15','0–1','60s'),X(wpick(POOL.triceps,'UAt'),3,'10–15','0–1','60s')];
-  case 'LA': return [X('Hack squat',4,'6–9','2–3','2.5–3m'),X('Weighted-sack walking lunges',3,'8–12/leg','2','2m'),X('Leg press (deep)',3,'10–15','1–2','2m'),X('Seated leg curl',3,'10–15','1','90s'),X(wpick(POOL.calves,'LAc'),4,'10–15','0–1','75s')];
-  case 'UB': return [X('Weighted pull-up',4,'6–9','2','2.5–3m'),X('Incline chest press machine',4,'8–12','1–2','2m'),X('Chest-supported row',4,'10–14','1','90s'),X('Shoulder press machine',3,'10–14','1','90s'),X(wpick(POOL.lateral,'UBl'),4,'12–20','0–1','60s'),X(wpick(POOL.chestiso,'UBc'),3,'10–15','0–1','60s'),X(wpick(POOL.biceps,'UBb'),3,'10–15','0–1','60s')];
-  case 'LB': return [X('Pendulum squat',4,'8–12','2','2.5–3m'),X('Romanian deadlift',3,'8–12','2','2.5m'),X('Leg press (glute bias)',3,'10–15','1–2','2m'),X('Seated leg curl',3,'12–15','1','90s'),X(wpick(POOL.calves,'LBc'),4,'12–18','0–1','75s')];
-  case 'UC': return [X('Pull-up',3,'8–12','1–2','2m'),X(wpick(POOL.chestiso,'UCc'),3,'10–15','1','90s'),X(wpick(POOL.lateral,'UCl'),4,'12–20','0–1','60s'),X(wpick(POOL.rear,'UCr'),3,'12–20','0–1','60s'),X(wpick(POOL.biceps,'UCb'),3,'10–15','0–1','60s'),X(wpick(POOL.triceps,'UCt'),3,'10–15','0–1','60s')];
+  case 'UA': return [X('Barbell bench press',3,'6–8','2','2–3m'),X('Weighted pull-up',3,'6–9','2','2–3m'),X('Shoulder press machine',2,'8–12','1–2','90s'),X('Seated row machine',2,'10–12','1–2','90s'),X(wpick(POOL.lateral,'UAl'),2,'12–20','1','60s'),X(wpick(POOL.biceps,'UAb'),2,'10–15','1','60s'),X(wpick(POOL.triceps,'UAt'),2,'10–15','1','60s')];
+  case 'LA': return [X('Hack squat',3,'6–9','2','2–3m'),X('Romanian deadlift',3,'8–10','2','2.5m'),X(wpick(POOL.quadiso,'LAq'),2,'12–15','1','90s'),X('Seated leg curl',2,'10–12','1','90s'),X('Weighted-sack walking lunges',2,'10–12/leg','1–2','90s'),X(wpick(POOL.calves,'LAc'),2,'10–15','1','75s')];
+  case 'UB': return [X('Incline chest press machine',3,'8–10','2','2–3m'),X('Weighted pull-up',3,'6–9','2','2–3m'),X('Chest-supported row',2,'10–12','1–2','90s'),X('Shoulder press machine',2,'10–12','1','90s'),X(wpick(POOL.rear,'UBr'),2,'12–20','1','60s'),X(wpick(POOL.lateral,'UBl'),2,'12–20','1','60s'),X(wpick(POOL.biceps,'UBb'),2,'10–15','1','60s')];
+  case 'LB': return [X('Pendulum squat',3,'8–10','2','2–3m'),X(wpick(POOL.hamcurl,'LBh'),3,'8–12','2','90s'),X('Leg press (glute bias)',2,'10–12','1–2','2m'),X('Leg extension',2,'12–15','1','90s'),X('Weighted-sack walking lunges',2,'10–12/leg','1–2','90s'),X(wpick(POOL.calves,'LBc'),2,'12–18','1','75s')];
+  case 'UC': return [X('Weighted pull-up',2,'8–12','1','2m'),X(wpick(POOL.chestiso,'UCc'),2,'10–15','1','90s'),X(wpick(POOL.lateral,'UCl'),2,'12–20','1','60s'),X(wpick(POOL.rear,'UCr'),2,'12–20','1','60s'),X(wpick(POOL.biceps,'UCb'),2,'10–15','1','60s'),X(wpick(POOL.triceps,'UCt'),2,'10–15','1','60s')];
   default: return null; } }
 const SESS_TITLE={UA:'Upper A',LA:'Lower A',UB:'Upper B',LB:'Lower B',UC:'Upper C',cardio:'Cardio',rest:'Rest'};
 const SCHED4=['UA','LA','cardio','UB','LB','cardio','rest'];

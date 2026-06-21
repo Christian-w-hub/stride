@@ -3,14 +3,26 @@
 Built from Christian's equipment ([training-profile.md](training-profile.md)), grounded in
 hypertrophy science + Jeff Nippard's selection logic. This is the spec the planner builds from.
 
-## Principles (verified)
-- **Volume:** advanced MEV ~12–14 sets/muscle/wk; productive **MAV ~12–20**. Cycle MEV→MAV across a block.
-- **Frequency:** ~**2×/week** per muscle (Upper/Lower delivers this).
-- **Reps:** hypertrophy equivalent ~5–30 reps near failure; compounds 5–8 (strength touch), isolations 12–20.
-- **Effort:** **0–3 RIR** (heavy compounds 2–3, isolations 0–1); failure adds fatigue, little extra growth.
-- **Rest (Schoenfeld 2016):** compounds **2–3 min**, isolations **60–90 s** (longer rest grew MORE).
-- **Selection:** high stimulus-to-fatigue, stable, **stretch-biased** (overhead triceps, incline, deep-stretch legs).
-- **Deload:** every **4–8 wks**, ~50–70% volume/intensity for a week.
+## Principles (v2 — lean & high-variety; evidence-grounded)
+Revised to his profile: advanced strength banked (130/170/210 at 80 kg), now hypertrophy +
+maintain strength + longevity, athletic-bodybuilder physique, trains **1–2 RIR**, prefers
+**fewer sets / more variety**, avoids junk volume. Live sessions are in the app (source of truth).
+- **Volume:** **~8–12 hard sets/muscle/wk** (priority muscles toward the top on the 5th day) —
+  the lower-middle of the 12–20 band, where the dose-response curve has flattened and
+  trained-lifter trials stop rewarding more sets. Deliberately avoids junk volume.
+- **Sets per exercise:** **2 working sets** (Krieger: 2 ≈ 4–6, n.s.); **anchors 3** for
+  progression + strength maintenance. More *exercises*, not more sets.
+- **Variety:** more exercises/angles for regional coverage + freshness; **anchors fixed**
+  (double progression), **accessories rotated per block** — systematic, not random.
+- **Frequency:** ~2×/week per muscle. **Reps:** anchors 6–10, accessories 10–20.
+- **Effort:** **1–2 RIR** — captures the near-flat top of the stimulus curve without the
+  fatigue of failure, so lean volume is sufficient. **Rest:** anchors 2–3 min, accessories 60–90 s.
+- **Maintenance/busy weeks:** ~5–7 sets/muscle at full load holds muscle + strength (Bickel).
+  Deload every 6–8 wks. Strength maintained on minimal volume *if load stays high*.
+- Sources: Pelland 2025 dose-response (PMID 41343037) · Baz-Valle 2022 (12–20 optimal, PMC8884877) ·
+  Enes 2024 / maintenance-beats-adding trials · Krieger 2010 (sets/exercise, PMID 20300012) ·
+  Refalo 2023 (failure trivial, PMC9935748) · Bickel 2011 (maintenance, PMID 21131862) ·
+  Nippard (junk volume; Min-Max 1–2 sets) · Schoenfeld 2016 (rest, PMID 26605807).
 
 ## Weekly structure
 **4-day** (each muscle 2×/wk): Mon Upper A · Tue Lower A · Thu Upper B · Fri Lower B · cardio ×2 on off days.

@@ -13,7 +13,8 @@ Source of truth for the Stride workout planner. Update as goals/equipment change
   occasional **novel exercises** for variety / stubborn areas.
 
 ## Equipment available (pier gym)
-- Hack squat machine, **pendulum squat machine**, leg press
+- Hack squat machine, **pendulum squat machine**, leg press, **leg extension machine** (quads)
+- **Seated/lying leg curl** (confirmed) + **ham-curl frame** (bend-over / Nordic-style hamstring curls)
 - Squat rack (NO barbell back squat — see avoid)
 - Barbell bench press, **incline chest press machine**
 - **Shoulder press machine**
@@ -29,6 +30,13 @@ Source of truth for the Stride workout planner. Update as goals/equipment change
 ## Avoid / constraints
 - **No barbell back squat** (use hack/pendulum/leg press for quad-dominant work).
 - **Deprioritise cables** by default (offer only if needed).
+
+## Training philosophy (his preference — drives the rebuild)
+- **Avoid junk volume.** Prefers **lower sets per exercise (~2)**, **more exercise variety**
+  to stay fresh, and **high intensity** (trains hard, low RIR). Quality hard sets over
+  set-padding. The first build's volume was too high — rebuild to the evidence-based
+  lower-to-moderate band, distributed across more exercises.
+- **Strength level: do NOT assume from training age.** Gauge from his actual numbers (below).
 
 ## Open (to confirm)
 - Specific stubborn areas to emphasise (not yet given — default balanced).
