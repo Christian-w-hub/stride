@@ -141,6 +141,15 @@
     .card{animation:none;opacity:1;transform:none;filter:none}body::before{animation:none}*{transition:none!important}
     ::view-transition-old(*),::view-transition-new(*){animation:none!important}
   }
+
+  /* celebration moments — fire once per real event (see JS) */
+  .ring.celebrate{animation:ringPulse .85s cubic-bezier(.2,.8,.3,1) .25s}
+  @keyframes ringPulse{0%,100%{filter:none;transform:scale(1)}45%{filter:drop-shadow(0 0 12px var(--good));transform:scale(1.07)}}
+  .hero.celebrate{animation:cardGlow 1.5s ease-out .3s}
+  @keyframes cardGlow{0%,100%{box-shadow:inset 0 1px 0 var(--inset),0 24px 60px -30px rgba(0,0,0,.92)}40%{box-shadow:inset 0 1px 0 var(--inset),0 0 0 1px var(--accent),0 0 44px -6px var(--accent)}}
+  .streak.celebrate .num{animation:popNum .85s cubic-bezier(.2,.8,.3,1) .3s}
+  @keyframes popNum{0%,100%{transform:scale(1);color:var(--text)}45%{transform:scale(1.16);color:var(--accent-2)}}
+  @media (prefers-reduced-motion:reduce){.ring.celebrate,.hero.celebrate,.streak.celebrate .num{animation:none}}
 </style>
 </head>
 <body>
@@ -358,6 +367,22 @@ function fmtHour(h){ const ap=h<12?'am':'pm'; let x=h%12; if(x===0)x=12; return 
   if(streak>=3) pool.push("<b>"+streak+"-day</b> walk run going.");
   if(!pool.length) pool.push("Fresh day. <b>One walk to start.</b>");
   $('status').innerHTML = pool[ now.getDate() % pool.length ]; })();
+
+// celebration moments — fire once per real event ------------------------
+(function(){
+  store.celebrated = store.celebrated || {}; const c = store.celebrated; const wk = weekId(now);
+  const fireWalk = walkDone && c.walk !== key;
+  const fireGym = gym>=GOAL.gym && c.gym !== wk;
+  const ms=[7,14,30,60,100,150,200,365];
+  const fireStreak = ms.includes(streak) && c.streak !== streak;
+  if(fireWalk) c.walk=key; if(fireGym) c.gym=wk; if(fireStreak) c.streak=streak;
+  if(fireWalk||fireGym||fireStreak){ try{ localStorage.setItem('stride',JSON.stringify(store)); }catch(e){} }
+  if(!reduce){
+    if(fireWalk) $('walkRing').classList.add('celebrate');
+    if(fireGym) document.querySelector('.hero').classList.add('celebrate');
+    if(fireStreak) document.querySelector('.walk .streak').classList.add('celebrate');
+  }
+})();
 
 // staleness --------------------------------------------------------------
 if(store.updated){ const hrs=(Date.now()-store.updated)/3.6e6;
