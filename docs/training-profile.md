@@ -38,6 +38,13 @@ Source of truth for the Stride workout planner. Update as goals/equipment change
   lower-to-moderate band, distributed across more exercises.
 - **Strength level: do NOT assume from training age.** Gauge from his actual numbers (below).
 
+## Loved movements (bias selection toward these)
+Pull-ups, weighted-sack lunges, **leg press**, **machine rows** (seated), **bench press**
+(do more), **chest-supported DB row on an incline** (favourite back move), **DB lateral
+raises**, **leg extensions**, **calf raises with full ROM** (also for ankle mobility).
+Leans **away from dumbbells** generally — but fine where there's benefit (laterals, the
+incline DB row). Dislikes cables. Anchors heavy (6–10), accessories higher (12–20), mixed.
+
 ## Open (to confirm)
 - Specific stubborn areas to emphasise (not yet given — default balanced).
 - Any injuries/limits (none stated).

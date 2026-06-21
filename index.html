@@ -21,6 +21,7 @@
     --c-gym:#3FE0A0;   --c-gym2:#86E88A;
     --c-walk:#FFC24B;  --c-walk2:#FF9A3D;
     --sky-top:#16386a; --sky-mid:#5a86b8; --sky-horizon:#dfeaf5; --sun:rgba(255,225,170,.32); --sun-x:50%; --sun-y:70%;
+    --viz:#FF6A2C; --viz2:#FFA63D;   /* reactive data-viz accent: warm on cool skies, teal on warm skies */
     --glass:rgba(16,17,21,.56); --glass-line:rgba(255,255,255,.14); --inset:rgba(255,255,255,.10);
     --r-card:14px; --r-el:5px; --r-chip:9px; --gap:18px; --pad:22px;
     --font:"Inter Tight","Inter",system-ui,-apple-system,sans-serif;
@@ -219,6 +220,7 @@
   .savebtn{margin-top:18px;width:100%;padding:13px;border-radius:10px;border:none;background:linear-gradient(150deg,var(--accent),var(--accent-2));color:#0c0d10;font:inherit;font-weight:500;font-size:15px;cursor:pointer}
   .setrow select{background:rgba(255,255,255,.06);border:1px solid var(--glass-line);border-radius:8px;color:var(--text);font:inherit;font-size:15px;padding:8px 10px}
   .crown{font-size:.7em;vertical-align:middle}
+  .gs1{stop-color:var(--viz,#FF6A2C)} .gs2{stop-color:var(--viz2,#FFA63D)}
   .bggrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(82px,1fr));gap:10px;margin-top:8px}
   .bgsw{padding:0;border:1px solid var(--glass-line);border-radius:12px;overflow:hidden;background:rgba(255,255,255,.04);cursor:pointer;color:var(--text);display:flex;flex-direction:column;font:inherit}
   .bgsw.on{outline:2px solid var(--accent-2);outline-offset:1px}
@@ -309,7 +311,7 @@
             <path id="gaugeArc" d="M16,108 A92,92 0 0 1 184,108" fill="none" stroke="url(#gg)" stroke-width="6.5" stroke-linecap="round"
                   pathLength="100" stroke-dasharray="0 100" style="transition:stroke-dasharray .8s cubic-bezier(.2,.7,.2,1)"/>
             <defs><linearGradient id="gg" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0" stop-color="#2dd4bf"/><stop offset="1" stop-color="#5eead4"/>
+              <stop offset="0" class="gs1"/><stop offset="1" class="gs2"/>
             </linearGradient></defs>
           </svg>
           <div class="gval"><span class="num" id="score">0</span><span class="pct">%</span></div>
@@ -579,7 +581,8 @@ const SKY=[
 function setSky(){
   if(bgPref!=='auto'){ const A=SKY[+bgPref]||SKY[4]; const s=document.documentElement.style;
     s.setProperty('--sky-top',`rgb(${A[1]})`); s.setProperty('--sky-mid',`rgb(${A[2]})`); s.setProperty('--sky-horizon',`rgb(${A[3]})`);
-    s.setProperty('--sun',`rgba(${A[4]})`); s.setProperty('--sun-y',A[5]+'%'); return; }
+    s.setProperty('--sun',`rgba(${A[4]})`); s.setProperty('--sun-y',A[5]+'%');
+    const w=(A[3][0]-A[3][2])>30; s.setProperty('--viz',w?'#2dd4bf':'#FF6A2C'); s.setProperty('--viz2',w?'#5eead4':'#FFA63D'); return; }
   const dn=new Date(); const h=dn.getHours()+dn.getMinutes()/60;
   let A=SKY[0],B=SKY[SKY.length-1];
   for(let i=0;i<SKY.length-1;i++){ if(h>=SKY[i][0]&&h<=SKY[i+1][0]){ A=SKY[i];B=SKY[i+1];break; } }
@@ -589,6 +592,7 @@ function setSky(){
   const s=document.documentElement.style;
   s.setProperty('--sky-top',rgb(mix(1))); s.setProperty('--sky-mid',rgb(mix(2))); s.setProperty('--sky-horizon',rgb(mix(3)));
   s.setProperty('--sun',rgba(mix(4))); s.setProperty('--sun-y',L(A[5],B[5]).toFixed(1)+'%');
+  const hz=mix(3), warm=(hz[0]-hz[2])>30; s.setProperty('--viz',warm?'#2dd4bf':'#FF6A2C'); s.setProperty('--viz2',warm?'#5eead4':'#FFA63D');
 }
 setSky();
 setInterval(setSky, 60000);
@@ -776,7 +780,7 @@ function confetti(){ if(reduce) return; const c=document.createElement('div'); c
 function trainingDays(){ try{ return +localStorage.getItem('strideDays')||4; }catch(e){ return 4; } }
 const POOL={ biceps:['DB incline curl','DB hammer curl','DB standing curl'], triceps:['DB overhead triceps ext','1-arm overhead ext','Close-grip DB press'],
   lateral:['DB lateral raise','Lean-away lateral raise'], rear:['Pec-deck rear flye','DB prone reverse flye'],
-  calves:['Calf raise machine','Single-leg DB calf raise','Leg-press toe press'], chestiso:['Pec-deck chest press','DB incline press','Incline chest press machine'],
+  calves:['Calf raise (full ROM)','Single-leg calf raise (full ROM)','Leg-press toe press (full stretch)'], chestiso:['Pec-deck chest press','Incline chest press machine','DB incline press'],
   quadiso:['Leg extension','Leg press (deep)','Pendulum squat'], hamcurl:['Seated leg curl','Lying/Nordic ham curl','Romanian deadlift'] };
 // novel "wildcard" pool (a dash of novelty for stimulus; all on his equipment)
 const NOVEL_U=['DB pullover','Pull-up negatives (slow)','Pec-deck 1.5 reps','Incline DB Y-raise','Cross-body DB curl','Overhead DB carry'];
@@ -785,9 +789,9 @@ const NOVEL_L=['Bulgarian split squat (DB)','Tempo hack squat (3s down)','Single
 function wpick(arr,salt){ const block=Math.floor(Date.now()/(42*864e5)); const s=block+salt; let h=0; for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))>>>0; return arr[h%arr.length]; }
 const X=(name,sets,reps,rir,rest)=>({name,sets,reps,rir,rest});
 function session(key){ switch(key){
-  case 'UA': return [X('Barbell bench press',3,'6–8','2','2–3m'),X('Weighted pull-up',3,'6–9','2','2–3m'),X('Shoulder press machine',2,'8–12','1–2','90s'),X('Seated row machine',2,'10–12','1–2','90s'),X(wpick(POOL.lateral,'UAl'),2,'12–20','1','60s'),X(wpick(POOL.biceps,'UAb'),2,'10–15','1','60s'),X(wpick(POOL.triceps,'UAt'),2,'10–15','1','60s')];
-  case 'LA': return [X('Hack squat',3,'6–9','2','2–3m'),X('Romanian deadlift',3,'8–10','2','2.5m'),X(wpick(POOL.quadiso,'LAq'),2,'12–15','1','90s'),X('Seated leg curl',2,'10–12','1','90s'),X('Weighted-sack walking lunges',2,'10–12/leg','1–2','90s'),X(wpick(POOL.calves,'LAc'),2,'10–15','1','75s')];
-  case 'UB': return [X('Incline chest press machine',3,'8–10','2','2–3m'),X('Weighted pull-up',3,'6–9','2','2–3m'),X('Chest-supported row',2,'10–12','1–2','90s'),X('Shoulder press machine',2,'10–12','1','90s'),X(wpick(POOL.rear,'UBr'),2,'12–20','1','60s'),X(wpick(POOL.lateral,'UBl'),2,'12–20','1','60s'),X(wpick(POOL.biceps,'UBb'),2,'10–15','1','60s')];
+  case 'UA': return [X('Barbell bench press',3,'6–8','2','2–3m'),X('Weighted pull-up',3,'6–9','2','2–3m'),X('Seated row machine',3,'8–12','1–2','90s'),X('Shoulder press machine',2,'8–12','1–2','90s'),X(wpick(POOL.lateral,'UAl'),2,'12–20','1','60s'),X(wpick(POOL.biceps,'UAb'),2,'10–15','1','60s'),X(wpick(POOL.triceps,'UAt'),2,'10–15','1','60s')];
+  case 'LA': return [X('Hack squat',3,'6–9','2','2–3m'),X('Leg press (deep)',3,'8–12','1–2','2m'),X('Leg extension',2,'12–15','1','90s'),X('Seated leg curl',2,'10–12','1','90s'),X('Weighted-sack walking lunges',2,'10–12/leg','1–2','90s'),X(wpick(POOL.calves,'LAc'),2,'12–18','1','75s')];
+  case 'UB': return [X('Incline chest press machine',3,'8–10','2','2–3m'),X('Weighted pull-up',3,'6–9','2','2–3m'),X('Chest-supported DB row (incline)',3,'8–12','1–2','90s'),X('Shoulder press machine',2,'10–12','1','90s'),X(wpick(POOL.rear,'UBr'),2,'12–20','1','60s'),X(wpick(POOL.lateral,'UBl'),2,'12–20','1','60s'),X(wpick(POOL.biceps,'UBb'),2,'10–15','1','60s')];
   case 'LB': return [X('Pendulum squat',3,'8–10','2','2–3m'),X(wpick(POOL.hamcurl,'LBh'),3,'8–12','2','90s'),X('Leg press (glute bias)',2,'10–12','1–2','2m'),X('Leg extension',2,'12–15','1','90s'),X('Weighted-sack walking lunges',2,'10–12/leg','1–2','90s'),X(wpick(POOL.calves,'LBc'),2,'12–18','1','75s')];
   case 'UC': return [X('Weighted pull-up',2,'8–12','1','2m'),X(wpick(POOL.chestiso,'UCc'),2,'10–15','1','90s'),X(wpick(POOL.lateral,'UCl'),2,'12–20','1','60s'),X(wpick(POOL.rear,'UCr'),2,'12–20','1','60s'),X(wpick(POOL.biceps,'UCb'),2,'10–15','1','60s'),X(wpick(POOL.triceps,'UCt'),2,'10–15','1','60s')];
   default: return null; } }
