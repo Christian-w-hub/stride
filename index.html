@@ -231,6 +231,7 @@
   .plan td.pn{text-align:right;color:var(--text-dim);font-size:12.5px;white-space:nowrap;padding-left:8px}
   .plan tr.trim td{opacity:.42}
   .trimtag{font-size:10px;color:var(--accent-2);border:1px solid var(--glass-line);border-radius:5px;padding:1px 5px;margin-left:6px;vertical-align:middle;opacity:1}
+  .newtag{font-size:10px;color:#2dd4bf;border:1px solid rgba(45,212,191,.4);border-radius:5px;padding:1px 5px;margin-left:6px;vertical-align:middle}
   .lowbanner{background:rgba(255,166,61,.12);border:1px solid rgba(255,166,61,.28);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--text-dim);margin-bottom:12px}
   .weekplan{display:flex;gap:6px;margin-top:8px}
   .weekplan .wp{flex:1;text-align:center}
@@ -777,7 +778,11 @@ const POOL={ biceps:['DB incline curl','DB hammer curl','DB standing curl'], tri
   lateral:['DB lateral raise','Lean-away lateral raise'], rear:['Pec-deck rear flye','DB prone reverse flye'],
   calves:['Calf raise machine','Single-leg DB calf raise','Leg-press toe press'], chestiso:['Pec-deck chest press','DB incline press','Incline chest press machine'],
   quadiso:['Leg extension','Leg press (deep)','Pendulum squat'], hamcurl:['Seated leg curl','Lying/Nordic ham curl','Romanian deadlift'] };
-function wpick(arr,salt){ const s=weekId(new Date())+salt; let h=0; for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))>>>0; return arr[h%arr.length]; }
+// novel "wildcard" pool (a dash of novelty for stimulus; all on his equipment)
+const NOVEL_U=['DB pullover','Pull-up negatives (slow)','Pec-deck 1.5 reps','Incline DB Y-raise','Cross-body DB curl','Overhead DB carry'];
+const NOVEL_L=['Bulgarian split squat (DB)','Tempo hack squat (3s down)','Single-leg leg press','Deficit DB RDL','Hack-squat calf raise'];
+// rotate per ~6-week block (anchors stay; accessories + novel freshen each block)
+function wpick(arr,salt){ const block=Math.floor(Date.now()/(42*864e5)); const s=block+salt; let h=0; for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))>>>0; return arr[h%arr.length]; }
 const X=(name,sets,reps,rir,rest)=>({name,sets,reps,rir,rest});
 function session(key){ switch(key){
   case 'UA': return [X('Barbell bench press',3,'6–8','2','2–3m'),X('Weighted pull-up',3,'6–9','2','2–3m'),X('Shoulder press machine',2,'8–12','1–2','90s'),X('Seated row machine',2,'10–12','1–2','90s'),X(wpick(POOL.lateral,'UAl'),2,'12–20','1','60s'),X(wpick(POOL.biceps,'UAb'),2,'10–15','1','60s'),X(wpick(POOL.triceps,'UAt'),2,'10–15','1','60s')];
@@ -790,9 +795,10 @@ const SESS_TITLE={UA:'Upper A',LA:'Lower A',UB:'Upper B',LB:'Lower B',UC:'Upper 
 const SCHED4=['UA','LA','cardio','UB','LB','cardio','rest'];
 const SCHED5=['UA','LA','UB','rest','LB','UC','cardio'];
 function schedule(){ return trainingDays()>=5?SCHED5:SCHED4; }
-function renderSession(key,low){ const s=session(key); if(!s) return '';
+function renderSession(key,low){ const base=session(key); if(!base) return '';
+  const s=base.concat([Object.assign(X(wpick(key[0]==='U'?NOVEL_U:NOVEL_L,'nv'+key),2,'8–15','1','75s'),{nw:1})]); // session-appropriate dash of novelty (last = first to cut)
   const cut = low ? Math.min(2, Math.max(0,s.length-3)) : 0; const from=s.length-cut;
-  const rows=s.map((x,i)=>{ const tr=i>=from; return `<tr class="${tr?'trim':''}"><td>${x.name}${tr?' <span class="trimtag">ease today</span>':''}</td><td class="pn">${x.sets}×${x.reps}</td><td class="pn">${x.rir} RIR</td><td class="pn">${x.rest}</td></tr>`; }).join('');
+  const rows=s.map((x,i)=>{ const tr=i>=from; return `<tr class="${tr?'trim':''}"><td>${x.name}${x.nw?' <span class="newtag">new</span>':''}${tr?' <span class="trimtag">ease today</span>':''}</td><td class="pn">${x.sets}×${x.reps}</td><td class="pn">${x.rir} RIR</td><td class="pn">${x.rest}</td></tr>`; }).join('');
   const banner = low ? `<div class="lowbanner">Under 7h sleep — I'd go max bang-for-buck. Full session below; the dimmed moves are safe to cut today.</div>` : '';
   return banner+'<table class="plan">'+rows+'</table>'; }
 function weekStrip(){ const sc=schedule(); const ds=['M','T','W','T','F','S','S']; const cur=(new Date().getDay()+6)%7;
