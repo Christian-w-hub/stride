@@ -199,6 +199,16 @@
   .ovrow b{color:var(--text);font-weight:500}
   .compbar{height:9px;border-radius:5px;background:rgba(255,255,255,.12);overflow:hidden;margin:7px 0 16px}
   .compbar > i{display:block;height:100%;border-radius:5px}
+  .ovtabs{display:flex;gap:6px;margin-bottom:16px}
+  .ovtab{padding:6px 12px;border-radius:8px;border:1px solid var(--glass-line);background:rgba(255,255,255,.05);color:var(--text-dim);font:inherit;font-size:12px;font-weight:500;cursor:pointer}
+  .ovtab.on{background:linear-gradient(150deg,var(--ca),var(--cb));color:#0c0d10;border-color:transparent}
+  .shelf{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:12px;margin-top:10px}
+  .trophy{text-align:center;padding:12px 6px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid var(--glass-line)}
+  .trophy .te{font-size:30px;line-height:1}
+  .trophy .tl{font-size:10px;color:var(--text-dim);margin-top:6px}
+  .trophy.locked{opacity:.32;filter:grayscale(1)}
+  .heat.yr{grid-template-rows:repeat(7,9px)}
+  .heat.yr .c{width:9px;height:9px;border-radius:2px}
 </style>
 </head>
 <body>
@@ -351,7 +361,7 @@ if (p.toString().length>0){
   if (has('walk'))  today.walkExplicit = today.walk = num(p.get('walk'))>0;
   else if (today.steps!=null && !today.walkExplicit && today.steps>=GOAL.walkSteps) today.walk = true; // latch on; a later low-steps sync can't un-fill it
   store.days[key] = today; store.updated = now.getTime();
-  const cut=(()=>{const c=new Date(now);c.setDate(c.getDate()-400);return todayKey(c);})(); // keep ~400d so streak milestones (to 365) survive
+  const cut=(()=>{const c=new Date(now);c.setDate(c.getDate()-1825);return todayKey(c);})(); // keep ~5y so months/years aggregates + all-time trophies persist (never resets)
   for(const d in store.days){ if(d<cut) delete store.days[d]; }
   try{ localStorage.setItem('stride', JSON.stringify(store)); }catch(e){}
 }
@@ -521,8 +531,8 @@ setInterval(setSky, 60000);
 function applyRemote(remote){
   if(!remote || typeof remote!=='object' || !remote.days) return;
   if(remote.updated && remote.updated===store.updated) return;        // nothing new since last paint
-  try{ localStorage.setItem('stride', JSON.stringify(remote)); }catch(e){}
-  sessionStorage.setItem('strideSilent','1'); location.reload();      // seamless re-render with fresh data
+  try{ const merged=Object.assign({}, remote, {celebrated: store.celebrated||remote.celebrated||{}}); localStorage.setItem('stride', JSON.stringify(merged)); }catch(e){}
+  sessionStorage.setItem('strideSilent','1'); location.reload();      // seamless re-render with fresh data (celebration state preserved)
 }
 function pollFirebase(){ if(!FIREBASE_URL) return;
   fetch(FIREBASE_URL.replace(/\/+$/,'')+'/stride.json',{cache:'no-store'})
@@ -572,27 +582,77 @@ function longestStreak(){ const keys=Object.keys(store.days).filter(k=>store.day
 function monthPct(){ const n=new Date(); let done=0; for(let day=1;day<=n.getDate();day++){ const r=store.days[todayKey(new Date(n.getFullYear(),n.getMonth(),day))]; if(r&&r.walk) done++; } return Math.round(done/n.getDate()*100); }
 function weeklyNow(){ const n=new Date(); let done=0; const elapsed=((n.getDay()+6)%7)+1; for(let i=0;i<elapsed;i++){ const d=new Date(n); d.setDate(d.getDate()-i); const r=store.days[todayKey(d)]; if(r&&r.walk) done++; } return {done,elapsed}; }
 
+// aggregate the daily history into weeks / months (for months & years views)
+function aggWeeks(nWeeks){ const out=[]; const n=new Date();
+  for(let i=nWeeks-1;i>=0;i--){ const m=new Date(n); m.setDate(n.getDate()-((n.getDay()+6)%7)-i*7);
+    let steps=0,sS=0,sN=0,walks=0,days=0;
+    for(let d=0;d<7;d++){ const dt=new Date(m); dt.setDate(m.getDate()+d); if(dt>n) break; const r=store.days[todayKey(dt)]; if(r){ days++; steps+=num(r.steps); if(r.sleep){sS+=r.sleep;sN++;} if(r.walk)walks++; } }
+    out.push({lbl:m.getDate()+'/'+(m.getMonth()+1), stepAvg:days?steps/days:0, sleepAvg:sN?sS/sN:0, walks, days}); }
+  return out; }
+function aggMonths(nMonths){ const out=[]; const n=new Date(); const M=['J','F','M','A','M','J','J','A','S','O','N','D'];
+  for(let i=nMonths-1;i>=0;i--){ const d=new Date(n.getFullYear(),n.getMonth()-i,1); const pref=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    let steps=0,sS=0,sN=0,walks=0,days=0;
+    for(const k in store.days){ if(k.indexOf(pref)===0){ const r=store.days[k]; days++; steps+=num(r.steps); if(r.sleep){sS+=r.sleep;sN++;} if(r.walk)walks++; } }
+    out.push({lbl:M[d.getMonth()], stepAvg:days?steps/days:0, sleepAvg:sN?sS/sN:0, walks, days}); }
+  return out; }
+
+// trophies — computed from full history, so they're earned-once and never reset
+const TROPHIES=[
+  {e:'🚶',t:'First walk',test:h=>h.walkDays>=1},
+  {e:'🔥',t:'7-day streak',test:h=>h.bestStreak>=7},
+  {e:'⭐',t:'30-day streak',test:h=>h.bestStreak>=30},
+  {e:'🏅',t:'100-day streak',test:h=>h.bestStreak>=100},
+  {e:'👟',t:'10k-step day',test:h=>h.bestSteps>=10000},
+  {e:'💪',t:'50k-step week',test:h=>h.bestWeekSteps>=50000},
+  {e:'🏋️',t:'Full gym week',test:h=>h.bestGymWeek>=GOAL.gym},
+  {e:'🏆',t:'4 gym weeks',test:h=>h.gymGoalWeeks>=4}
+];
+function historyStats(){ const ks=Object.keys(store.days); let walkDays=0,bestSteps=0;
+  ks.forEach(k=>{ const r=store.days[k]; if(r.walk)walkDays++; if(num(r.steps)>bestSteps)bestSteps=num(r.steps); });
+  const wk={}; ks.forEach(k=>{ const w=weekId(new Date(k+'T00:00')); wk[w]=(wk[w]||0)+num(store.days[k].steps); });
+  const bestWeekSteps=Math.max(0,...Object.values(wk));
+  const gyms=Object.values(store.gymWeeks||{}).map(Number); if(store.gymWeek) gyms.push(num(store.gymWeek.count));
+  return {walkDays,bestSteps,bestStreak:longestStreak(),bestWeekSteps,bestGymWeek:Math.max(0,...gyms),gymGoalWeeks:gyms.filter(c=>c>=GOAL.gym).length}; }
+function trophyShelf(){ const h=historyStats(); const got=TROPHIES.filter(t=>t.test(h)).length;
+  return `<div class="ovrow" style="margin-top:20px"><span>Trophy shelf</span><span style="color:var(--text-faint);font-size:12px">${got}/${TROPHIES.length} earned</span></div>`
+    +'<div class="shelf">'+TROPHIES.map(t=>{ const on=t.test(h); return `<div class="trophy${on?'':' locked'}"><div class="te">${t.e}</div><div class="tl">${t.t}</div></div>`; }).join('')+'</div>'; }
+
+const RANGES={ activity:['14d','12wk','12mo'], sleep:['14d','12wk','12mo'], walk:['8wk','1yr'] };
+const RLABEL={'14d':'14 days','12wk':'12 weeks','12mo':'12 months','8wk':'8 weeks','1yr':'Year'};
+
 const RENDER={
-  activity(){ const ds=ld(14); const v=ds.map(x=>num(x.r.steps)); const best=Math.max(...v,0);
-    const avg=Math.round(v.reduce((a,b)=>a+b,0)/14); const km=ds.reduce((a,x)=>a+num(x.r.dist),0);
-    return ovbars(ds.map(x=>({v:num(x.r.steps),lbl:dl(x.d),hi:best>0&&num(x.r.steps)===best})))
-      +`<div class="ovstats">${stat(avg.toLocaleString(),'14-day avg')}${stat(best.toLocaleString(),'best day')}${stat(km.toFixed(1)+' km','total distance')}</div>`; },
-  sleep(){ const ds=ld(14); const v=ds.map(x=>x.r.sleep||0); const have=v.filter(x=>x>0);
-    const avg=have.length?have.reduce((a,b)=>a+b,0)/have.length:0; const best=Math.max(...v,0); const worst=have.length?Math.min(...have):0;
-    return ovbars(ds.map(x=>({v:x.r.sleep||0,lbl:dl(x.d)})))
-      +`<div class="ovstats">${stat(fmtHrs(avg),'14-night avg')}${stat(fmtHrs(best),'longest')}${stat(fmtHrs(worst),'shortest')}</div>`
+  activity(range){ range=range||'14d';
+    if(range==='14d'){ const ds=ld(14); const v=ds.map(x=>num(x.r.steps)); const best=Math.max(...v,0);
+      const avg=Math.round(v.reduce((a,b)=>a+b,0)/14); const km=ds.reduce((a,x)=>a+num(x.r.dist),0);
+      return ovbars(ds.map(x=>({v:num(x.r.steps),lbl:dl(x.d),hi:best>0&&num(x.r.steps)===best})))
+        +`<div class="ovstats">${stat(avg.toLocaleString(),'14-day avg')}${stat(best.toLocaleString(),'best day')}${stat(km.toFixed(1)+' km','distance')}</div>`; }
+    const A=range==='12wk'?aggWeeks(12):aggMonths(12); const best=Math.max(0,...A.map(x=>x.stepAvg));
+    const days=A.filter(x=>x.days); const avg=days.length?Math.round(days.reduce((a,b)=>a+b.stepAvg,0)/days.length):0;
+    return ovbars(A.map(x=>({v:Math.round(x.stepAvg),lbl:x.lbl,hi:x.stepAvg>0&&x.stepAvg===best})))
+      +`<div class="ovstats">${stat(avg.toLocaleString(),'avg steps/day')}${stat(Math.round(best).toLocaleString(),'best '+(range==='12wk'?'week':'month'))}</div>`; },
+  sleep(range){ range=range||'14d';
+    if(range==='14d'){ const ds=ld(14); const v=ds.map(x=>x.r.sleep||0); const have=v.filter(x=>x>0);
+      const avg=have.length?have.reduce((a,b)=>a+b,0)/have.length:0; const best=Math.max(...v,0); const worst=have.length?Math.min(...have):0;
+      return ovbars(ds.map(x=>({v:x.r.sleep||0,lbl:dl(x.d)})))
+        +`<div class="ovstats">${stat(fmtHrs(avg),'14-night avg')}${stat(fmtHrs(best),'longest')}${stat(fmtHrs(worst),'shortest')}</div>`
+        +`<div class="note" style="margin-top:14px">Estimated · charging + do not disturb</div>`; }
+    const A=range==='12wk'?aggWeeks(12):aggMonths(12); const have=A.filter(x=>x.sleepAvg>0);
+    const avg=have.length?have.reduce((a,b)=>a+b.sleepAvg,0)/have.length:0; const best=Math.max(0,...A.map(x=>x.sleepAvg));
+    return ovbars(A.map(x=>({v:x.sleepAvg,lbl:x.lbl})))
+      +`<div class="ovstats">${stat(fmtHrs(avg),'avg/night')}${stat(fmtHrs(best),'best '+(range==='12wk'?'week':'month'))}</div>`
       +`<div class="note" style="margin-top:14px">Estimated · charging + do not disturb</div>`; },
   gym(){ const wkk=weekId(new Date()); const cur=(store.gymWeek&&store.gymWeek.week===wkk)?store.gymWeek.count:0;
-    const hist=Object.entries(store.gymWeeks||{}).sort((a,b)=>a[0]<b[0]?-1:1).slice(-7);
+    const hist=Object.entries(store.gymWeeks||{}).sort((a,b)=>a[0]<b[0]?-1:1).slice(-11);
     const all=hist.concat([[wkk,cur]]);
     const hits=all.filter(([,c])=>c>=GOAL.gym).length;
     let h=ovbars(all.map(([w,c])=>({v:c,lbl:w.slice(8)+'/'+w.slice(5,7),hi:c>=GOAL.gym})))
       +`<div class="ovstats">${stat(cur+'/'+GOAL.gym,'this week')}${stat(hits,'weeks at goal')}</div>`;
     if(all.length<=1) h+=`<div class="note" style="margin-top:14px">Weekly history builds from here as you keep syncing.</div>`;
     return h; },
-  walk(){ const ds=ld(56); const firstDow=(ds[0].d.getDay()+6)%7; let pad=''; for(let i=0;i<firstDow;i++) pad+='<div class="c" style="visibility:hidden"></div>';
+  walk(range){ range=range||'8wk'; const span=range==='1yr'?364:56;
+    const ds=ld(span); const firstDow=(ds[0].d.getDay()+6)%7; let pad=''; for(let i=0;i<firstDow;i++) pad+='<div class="c" style="visibility:hidden"></div>';
     const cells=ds.map(x=>`<div class="c${x.r.walk?' on':''}" title="${x.k}"></div>`).join('');
-    return `<div class="heat">${pad}${cells}</div><div class="ovstats">${stat(streak,'current streak')}${stat(longestStreak(),'longest')}${stat(monthPct()+'%','this month')}</div>`; },
+    return `<div class="heat${range==='1yr'?' yr':''}">${pad}${cells}</div><div class="ovstats">${stat(streak,'current streak')}${stat(longestStreak(),'longest')}${stat(monthPct()+'%','this month')}</div>`; },
   clock(){ const sum=new Array(24).fill(0); let dys=0; for(const k in store.days){ const h=store.days[k].hours; if(h&&h.length===24){ dys++; for(let i=0;i<24;i++) sum[i]+=num(h[i]); } }
     const avg=sum.map(s=>dys?s/dys:0);
     const ranked=[...Array(24).keys()].filter(i=>avg[i]>0).sort((a,b)=>avg[b]-avg[a]).slice(0,3);
@@ -605,15 +665,20 @@ const RENDER={
     const score=Math.round(100*(0.4*gP+0.4*wP+0.2*sP));
     const comp=(l,f,wt,c)=>`<div class="ovrow"><span>${l} · <b>${Math.round(f*100)}%</b></span><span style="color:var(--text-faint);font-size:12px">weight ${wt}</span></div><div class="compbar"><i style="width:${Math.round(f*100)}%;background:${c}"></i></div>`;
     return `<div class="ovstat" style="margin-bottom:10px"><div class="n">${score}%</div><div class="l">weekly consistency</div></div>`
-      +comp('Gym',gP,'40%','var(--c-gym)')+comp('Walks',wP,'40%','var(--c-walk)')+comp('Steps',sP,'20%','var(--c-act)'); }
+      +comp('Gym',gP,'40%','var(--c-gym)')+comp('Walks',wP,'40%','var(--c-walk)')+comp('Steps',sP,'20%','var(--c-act)')+trophyShelf(); }
 };
 
+function ovRender(id,range){ const body=$('ovBody'); const opts=RANGES[id];
+  const bar = opts ? '<div class="ovtabs">'+opts.map(r=>`<button class="ovtab${r===range?' on':''}" data-r="${r}">${RLABEL[r]||r}</button>`).join('')+'</div>' : '';
+  body.innerHTML=bar+RENDER[id](range);
+  if(opts) body.querySelectorAll('.ovtab').forEach(b=>b.addEventListener('click',()=>ovRender(id,b.dataset.r)));
+}
 function openOverlay(id){ const ov=$('overlay'), sheet=ov.querySelector('.sheet');
   const cs=getComputedStyle(document.querySelector('.'+id));
   sheet.style.setProperty('--ca', cs.getPropertyValue('--ca').trim()||'#FF6A2C');
   sheet.style.setProperty('--cb', cs.getPropertyValue('--cb').trim()||'#FFA63D');
   $('ovChip').innerHTML=icon(ICON_OF[id]); $('ovTitle').textContent=OV_TITLE[id];
-  $('ovBody').innerHTML=RENDER[id](); ov.hidden=false;
+  ovRender(id, RANGES[id]?RANGES[id][0]:undefined); ov.hidden=false;
 }
 function closeOverlay(){ $('overlay').hidden=true; }
 $('ovClose').addEventListener('click', closeOverlay);
