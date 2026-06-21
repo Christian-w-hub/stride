@@ -58,8 +58,8 @@
   .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:var(--gap)}
   .card{
     background:var(--glass);
-    background:linear-gradient(160deg, rgba(8,9,12,.44), rgba(8,9,12,.10) 62%), color-mix(in srgb, var(--ca,#9a9aa6) 4%, var(--glass));
-    backdrop-filter:blur(30px) saturate(155%) brightness(.86); -webkit-backdrop-filter:blur(30px) saturate(155%) brightness(.86);
+    background:linear-gradient(160deg, rgba(8,9,12,.55), rgba(8,9,12,.47) 100%), linear-gradient(165deg, rgba(255,255,255,.045), rgba(255,255,255,.02));
+    backdrop-filter:blur(30px) saturate(108%) brightness(.80); -webkit-backdrop-filter:blur(30px) saturate(108%) brightness(.80);
     border:1px solid var(--glass-line); border-radius:var(--r-card); padding:var(--pad); position:relative; overflow:hidden;
     text-shadow:0 1px 2px rgba(0,0,0,.4);
     box-shadow:inset 0 1px 0 var(--inset), 0 24px 60px -30px rgba(0,0,0,.92);
@@ -102,8 +102,7 @@
   .gym .foot{color:var(--text-dim);font-size:14px;font-weight:400}
 
   /* hero gauge */
-  .hero{align-items:center;justify-content:center;text-align:center;gap:6px;
-    background:linear-gradient(160deg, rgba(8,9,12,.44), rgba(8,9,12,.10) 62%), linear-gradient(165deg,rgba(255,255,255,.05),rgba(255,255,255,.02))}
+  .hero{align-items:center;justify-content:center;text-align:center;gap:6px}
   .hero .iconrow{display:flex;gap:7px;flex-wrap:wrap;justify-content:center;margin-bottom:6px}
   .hero .ic{width:30px;height:30px;border-radius:var(--r-chip);display:grid;place-items:center;font-size:13px;
     background:rgba(255,255,255,.07);border:1px solid var(--glass-line);opacity:.7}
@@ -306,7 +305,7 @@
             <path id="gaugeArc" d="M16,108 A92,92 0 0 1 184,108" fill="none" stroke="url(#gg)" stroke-width="6.5" stroke-linecap="round"
                   pathLength="100" stroke-dasharray="0 100" style="transition:stroke-dasharray .8s cubic-bezier(.2,.7,.2,1)"/>
             <defs><linearGradient id="gg" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0" stop-color="var(--accent)"/><stop offset="1" stop-color="var(--accent-2)"/>
+              <stop offset="0" stop-color="#2dd4bf"/><stop offset="1" stop-color="#5eead4"/>
             </linearGradient></defs>
           </svg>
           <div class="gval"><span class="num" id="score">0</span><span class="pct">%</span></div>
@@ -564,7 +563,7 @@ if(store.updated){ const hrs=(Date.now()-store.updated)/3.6e6;
 const SKY=[
   [0,   [10,16,38],[18,26,54],[28,36,68],   [120,140,200,.10],80],  // night
   [5,   [26,34,74],[58,64,108],[120,96,128], [200,140,150,.20],88],  // pre-dawn
-  [7,   [40,92,150],[150,170,120],[255,225,120],[255,200,120,.50],86],// sunrise — blue + yellow
+  [7,   [70,95,160],[210,135,120],[255,185,115],[255,170,110,.55],86],// sunrise — blue + warm orange
   [9,   [44,110,180],[120,170,215],[225,235,200],[255,235,180,.34],70],// morning
   [12,  [30,95,170],[110,165,215],[225,238,250],[255,255,245,.28],36],// midday — blue + white
   [15,  [42,108,180],[140,185,220],[235,225,195],[255,240,205,.32],55],// afternoon
