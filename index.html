@@ -221,6 +221,17 @@
   .savebtn{margin-top:18px;width:100%;padding:13px;border-radius:10px;border:none;background:linear-gradient(150deg,var(--accent),var(--accent-2));color:#0c0d10;font:inherit;font-weight:500;font-size:15px;cursor:pointer}
   .setrow select{background:rgba(255,255,255,.06);border:1px solid var(--glass-line);border-radius:8px;color:var(--text);font:inherit;font-size:15px;padding:8px 10px}
   .crown{font-size:.7em;vertical-align:middle}
+  .plan{width:100%;border-collapse:collapse;margin-top:8px}
+  .plan td{padding:9px 0;border-bottom:1px solid rgba(255,255,255,.07);font-size:14px;color:var(--text)}
+  .plan td:first-child{width:48%}
+  .plan td.pn{text-align:right;color:var(--text-dim);font-size:12.5px;white-space:nowrap;padding-left:8px}
+  .weekplan{display:flex;gap:6px;margin-top:8px}
+  .weekplan .wp{flex:1;text-align:center}
+  .wpd{font-size:10px;color:var(--text-faint);margin-bottom:5px}
+  .wpk{padding:8px 0;border-radius:8px;font-size:12px;font-weight:500;background:rgba(255,255,255,.06);border:1px solid var(--glass-line)}
+  .wpk.k-sess{background:linear-gradient(150deg,color-mix(in srgb,var(--c-gym) 30%,rgba(20,21,26,.85)),rgba(20,21,26,.85))}
+  .wpk.k-cardio{color:var(--accent-2)} .wpk.k-rest{color:var(--text-faint)}
+  .weekplan .wp.now .wpk{outline:2px solid rgba(255,255,255,.45);outline-offset:1px}
   .confetti{position:fixed;inset:0 0 auto 0;height:0;z-index:60;pointer-events:none;overflow:visible}
   .confetti i{position:absolute;top:-14px;width:8px;height:12px;border-radius:2px;opacity:.95;animation:fall 2.4s cubic-bezier(.3,.6,.5,1) forwards}
   @keyframes fall{to{transform:translateY(104vh) rotate(calc(var(--rx,1)*720deg));opacity:0}}
@@ -711,6 +722,29 @@ function confetti(){ if(reduce) return; const c=document.createElement('div'); c
   for(let i=0;i<44;i++){ const p=document.createElement('i'); p.style.left=Math.random()*100+'%'; p.style.background=cols[i%5]; p.style.animationDelay=(Math.random()*0.4).toFixed(2)+'s'; p.style.setProperty('--rx',(Math.random()*2-1).toFixed(2)); c.appendChild(p); }
   document.body.appendChild(c); setTimeout(()=>c.remove(),2800); }
 
+// ===== training plan (evidence-based Upper/Lower — see docs/workout-program.md) =====
+function trainingDays(){ try{ return +localStorage.getItem('strideDays')||4; }catch(e){ return 4; } }
+const POOL={ biceps:['DB incline curl','DB hammer curl','DB standing curl'], triceps:['DB overhead triceps ext','1-arm overhead ext','Close-grip DB press'],
+  lateral:['DB lateral raise','Lean-away lateral raise'], rear:['Pec-deck rear flye','DB prone reverse flye'],
+  calves:['Calf raise machine','Single-leg DB calf raise','Leg-press toe press'], chestiso:['Pec-deck chest press','DB incline press'] };
+function wpick(arr,salt){ const s=weekId(new Date())+salt; let h=0; for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))>>>0; return arr[h%arr.length]; }
+const X=(name,sets,reps,rir,rest)=>({name,sets,reps,rir,rest});
+function session(key){ switch(key){
+  case 'UA': return [X('Barbell bench press',4,'5–7','2–3','2.5–3m'),X('Weighted pull-up',3,'6–9','2','2–3m'),X('Incline chest press machine',3,'8–12','1–2','90s'),X('Seated row machine',3,'8–12','1–2','90s'),X('Shoulder press machine',3,'8–12','1–2','90s'),X(wpick(POOL.biceps,'UAb'),3,'10–15','0–1','60s'),X(wpick(POOL.triceps,'UAt'),3,'10–15','0–1','60s')];
+  case 'LA': return [X('Hack squat',4,'6–9','2–3','2.5–3m'),X('Weighted-sack walking lunges',3,'8–12/leg','2','2m'),X('Leg press (deep)',3,'10–15','1–2','2m'),X('Seated leg curl',3,'10–15','1','90s'),X(wpick(POOL.calves,'LAc'),4,'10–15','0–1','75s')];
+  case 'UB': return [X('Weighted pull-up',4,'6–9','2','2.5–3m'),X('Incline chest press machine',4,'8–12','1–2','2m'),X('Chest-supported row',4,'10–14','1','90s'),X('Shoulder press machine',3,'10–14','1','90s'),X(wpick(POOL.lateral,'UBl'),4,'12–20','0–1','60s'),X(wpick(POOL.chestiso,'UBc'),3,'10–15','0–1','60s'),X(wpick(POOL.biceps,'UBb'),3,'10–15','0–1','60s')];
+  case 'LB': return [X('Pendulum squat',4,'8–12','2','2.5–3m'),X('Romanian deadlift',3,'8–12','2','2.5m'),X('Leg press (glute bias)',3,'10–15','1–2','2m'),X('Seated leg curl',3,'12–15','1','90s'),X(wpick(POOL.calves,'LBc'),4,'12–18','0–1','75s')];
+  case 'UC': return [X('Pull-up',3,'8–12','1–2','2m'),X(wpick(POOL.chestiso,'UCc'),3,'10–15','1','90s'),X(wpick(POOL.lateral,'UCl'),4,'12–20','0–1','60s'),X(wpick(POOL.rear,'UCr'),3,'12–20','0–1','60s'),X(wpick(POOL.biceps,'UCb'),3,'10–15','0–1','60s'),X(wpick(POOL.triceps,'UCt'),3,'10–15','0–1','60s')];
+  default: return null; } }
+const SESS_TITLE={UA:'Upper A',LA:'Lower A',UB:'Upper B',LB:'Lower B',UC:'Upper C',cardio:'Cardio',rest:'Rest'};
+const SCHED4=['UA','LA','cardio','UB','LB','cardio','rest'];
+const SCHED5=['UA','LA','UB','rest','LB','UC','cardio'];
+function schedule(){ return trainingDays()>=5?SCHED5:SCHED4; }
+function renderSession(key){ const s=session(key); if(!s) return '';
+  return '<table class="plan">'+s.map(x=>`<tr><td>${x.name}</td><td class="pn">${x.sets}×${x.reps}</td><td class="pn">${x.rir} RIR</td><td class="pn">${x.rest}</td></tr>`).join('')+'</table>'; }
+function weekStrip(){ const sc=schedule(); const ds=['M','T','W','T','F','S','S']; const cur=(new Date().getDay()+6)%7;
+  return '<div class="weekplan">'+sc.map((k,i)=>`<div class="wp${i===cur?' now':''}"><div class="wpd">${ds[i]}</div><div class="wpk ${k==='cardio'?'k-cardio':k==='rest'?'k-rest':'k-sess'}">${k==='cardio'?'CRD':k==='rest'?'·':k}</div></div>`).join('')+'</div>'; }
+
 const RANGES={ activity:['14d','12wk','12mo'], sleep:['14d','12wk','12mo'], walk:['8wk','1yr'] };
 const RLABEL={'14d':'14 days','12wk':'12 weeks','12mo':'12 months','8wk':'8 weeks','1yr':'Year'};
 
@@ -735,13 +769,18 @@ const RENDER={
     return ovbars(A.map(x=>({v:x.sleepAvg,lbl:x.lbl})))
       +`<div class="ovstats">${stat(fmtHrs(avg),'avg/night')}${stat(fmtHrs(best),'best '+(range==='12wk'?'week':'month'))}</div>`
       +`<div class="note" style="margin-top:14px">Estimated · charging + do not disturb</div>`; },
-  gym(){ const wkk=weekId(new Date()); const cur=(store.gymWeek&&store.gymWeek.week===wkk)?store.gymWeek.count:0;
+  gym(){ const day0=(new Date().getDay()+6)%7; const key=schedule()[day0];
+    let h=`<div class="ovrow"><span>Today — <b>${SESS_TITLE[key]}</b></span><span style="color:var(--text-faint);font-size:12px">${trainingDays()}-day Upper/Lower</span></div>`;
+    if(key==='cardio') h+='<div class="insight">20–25 min easy cycling or incline walk. Keep it off leg days.</div>';
+    else if(key==='rest') h+='<div class="insight">Rest day. Recovery is part of the plan — that’s when you grow.</div>';
+    else h+=renderSession(key);
+    h+='<div class="ovrow" style="margin-top:18px"><span>This week</span></div>'+weekStrip();
+    const wkk=weekId(new Date()); const cur=(store.gymWeek&&store.gymWeek.week===wkk)?store.gymWeek.count:0;
     const hist=Object.entries(store.gymWeeks||{}).sort((a,b)=>a[0]<b[0]?-1:1).slice(-11);
-    const all=hist.concat([[wkk,cur]]);
-    const hits=all.filter(([,c])=>c>=GOAL.gym).length;
-    let h=ovbars(all.map(([w,c])=>({v:c,lbl:w.slice(8)+'/'+w.slice(5,7),hi:c>=GOAL.gym})))
+    const all=hist.concat([[wkk,cur]]); const hits=all.filter(([,c])=>c>=GOAL.gym).length;
+    h+='<div class="ovrow" style="margin-top:18px"><span>Gym history</span></div>'
+      +ovbars(all.map(([w,c])=>({v:c,lbl:w.slice(8)+'/'+w.slice(5,7),hi:c>=GOAL.gym})))
       +`<div class="ovstats">${stat(cur+'/'+GOAL.gym,'this week')}${stat(hits,'weeks at goal')}</div>`;
-    if(all.length<=1) h+=`<div class="note" style="margin-top:14px">Weekly history builds from here as you keep syncing.</div>`;
     return h; },
   walk(range){ range=range||'8wk'; const span=range==='1yr'?364:56;
     const ds=ld(span); const firstDow=(ds[0].d.getDay()+6)%7; let pad=''; for(let i=0;i<firstDow;i++) pad+='<div class="c" style="visibility:hidden"></div>';
@@ -782,12 +821,13 @@ function openSettings(){ const ov=$('overlay'), sheet=ov.querySelector('.sheet')
     +`<div class="setrow"><label>Daily step goal</label><input id="s-steps" type="number" min="1000" max="40000" step="500" value="${g.steps}"></div>`
     +`<div class="setrow"><label>Sleep target (hours)</label><input id="s-sleep" type="number" min="4" max="12" step="0.5" value="${g.sleep}"></div>`
     +`<div class="setrow"><label>A walk counts at (steps)</label><input id="s-walk" type="number" min="1000" max="15000" step="500" value="${g.walkSteps}"></div>`
+    +`<div class="setrow"><label>Training days / week</label><select id="s-days"><option value="4">4</option><option value="5">5</option></select></div>`
     +`<div class="setrow"><label>Voice <span style="color:var(--text-faint)">— how chatty</span></label><select id="s-voice"><option value="full">Full</option><option value="subtle">Subtle</option><option value="off">Off</option></select></div>`
     +`<button class="savebtn" id="s-save">Save targets</button>`
     +`<div class="note" style="margin-top:12px;text-transform:none;letter-spacing:0">Saved on this device. Change these any time as your goals evolve.</div>`;
-  $('s-voice').value=voice;
+  $('s-voice').value=voice; $('s-days').value=trainingDays();
   $('s-save').addEventListener('click', ()=>{ const ng={gym:+$('s-gym').value||5, steps:+$('s-steps').value||8000, sleep:+$('s-sleep').value||7.5, walkSteps:+$('s-walk').value||7000};
-    try{ localStorage.setItem('strideGoals', JSON.stringify(ng)); localStorage.setItem('strideVoice', $('s-voice').value); }catch(e){} location.reload(); });
+    try{ localStorage.setItem('strideGoals', JSON.stringify(ng)); localStorage.setItem('strideVoice', $('s-voice').value); localStorage.setItem('strideDays', $('s-days').value); }catch(e){} location.reload(); });
   ov.hidden=false; }
 function closeOverlay(){ $('overlay').hidden=true; }
 $('ovClose').addEventListener('click', closeOverlay);
