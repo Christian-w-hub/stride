@@ -64,8 +64,9 @@
     box-shadow:inset 0 2px 0 color-mix(in srgb, var(--ca,#fff) 42%, transparent), inset 0 1px 0 var(--inset), 0 24px 60px -30px rgba(0,0,0,.92);
   }
   .chead{display:flex;align-items:center;gap:11px;margin-bottom:14px}
-  .chip{width:36px;height:36px;border-radius:var(--r-chip);display:grid;place-items:center;font-size:17px;
-    background:linear-gradient(150deg,var(--ca,#888),var(--cb,#555));box-shadow:inset 0 1px 0 rgba(255,255,255,.25), 0 4px 12px -4px var(--ca,transparent)}
+  .chip{width:36px;height:36px;border-radius:var(--r-chip);display:grid;place-items:center;font-size:17px;border:1px solid var(--glass-line);
+    background:linear-gradient(150deg, color-mix(in srgb,var(--ca,#888) 36%, rgba(20,21,26,.9)), color-mix(in srgb,var(--cb,#555) 22%, rgba(20,21,26,.9)));
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.10)}
   .ctitle{font-size:15px;font-weight:500}
   .chead .tag{margin-left:auto}
 
@@ -209,6 +210,8 @@
   .trophy.locked{opacity:.32;filter:grayscale(1)}
   .heat.yr{grid-template-rows:repeat(7,9px)}
   .heat.yr .c{width:9px;height:9px;border-radius:2px}
+  .insight{color:var(--text-dim);font-size:14px;font-weight:400;margin-top:14px}
+  .insight b{color:var(--cb);font-weight:500}
 </style>
 </head>
 <body>
@@ -599,23 +602,43 @@ function aggMonths(nMonths){ const out=[]; const n=new Date(); const M=['J','F',
 // trophies — computed from full history, so they're earned-once and never reset
 const TROPHIES=[
   {e:'🚶',t:'First walk',test:h=>h.walkDays>=1},
+  {e:'✅',t:'10 walks',test:h=>h.walkDays>=10},
+  {e:'🥾',t:'50 walks',test:h=>h.walkDays>=50},
+  {e:'🗺️',t:'100 walks',test:h=>h.walkDays>=100},
   {e:'🔥',t:'7-day streak',test:h=>h.bestStreak>=7},
   {e:'⭐',t:'30-day streak',test:h=>h.bestStreak>=30},
   {e:'🏅',t:'100-day streak',test:h=>h.bestStreak>=100},
+  {e:'👑',t:'365-day streak',test:h=>h.bestStreak>=365},
   {e:'👟',t:'10k-step day',test:h=>h.bestSteps>=10000},
+  {e:'⚡',t:'15k-step day',test:h=>h.bestSteps>=15000},
   {e:'💪',t:'50k-step week',test:h=>h.bestWeekSteps>=50000},
+  {e:'🚀',t:'70k-step week',test:h=>h.bestWeekSteps>=70000},
+  {e:'🦶',t:'1M steps',test:h=>h.totalSteps>=1000000},
+  {e:'🌍',t:'5M steps',test:h=>h.totalSteps>=5000000},
   {e:'🏋️',t:'Full gym week',test:h=>h.bestGymWeek>=GOAL.gym},
-  {e:'🏆',t:'4 gym weeks',test:h=>h.gymGoalWeeks>=4}
+  {e:'🎖️',t:'4 gym weeks',test:h=>h.gymGoalWeeks>=4},
+  {e:'🏆',t:'25 gym visits',test:h=>h.totalGym>=25},
+  {e:'🥇',t:'100 gym visits',test:h=>h.totalGym>=100}
 ];
-function historyStats(){ const ks=Object.keys(store.days); let walkDays=0,bestSteps=0;
-  ks.forEach(k=>{ const r=store.days[k]; if(r.walk)walkDays++; if(num(r.steps)>bestSteps)bestSteps=num(r.steps); });
+function historyStats(){ const ks=Object.keys(store.days); let walkDays=0,bestSteps=0,totalSteps=0;
+  ks.forEach(k=>{ const r=store.days[k]; const s=num(r.steps); totalSteps+=s; if(r.walk)walkDays++; if(s>bestSteps)bestSteps=s; });
   const wk={}; ks.forEach(k=>{ const w=weekId(new Date(k+'T00:00')); wk[w]=(wk[w]||0)+num(store.days[k].steps); });
   const bestWeekSteps=Math.max(0,...Object.values(wk));
   const gyms=Object.values(store.gymWeeks||{}).map(Number); if(store.gymWeek) gyms.push(num(store.gymWeek.count));
-  return {walkDays,bestSteps,bestStreak:longestStreak(),bestWeekSteps,bestGymWeek:Math.max(0,...gyms),gymGoalWeeks:gyms.filter(c=>c>=GOAL.gym).length}; }
+  return {walkDays,bestSteps,totalSteps,totalGym:gyms.reduce((a,b)=>a+b,0),bestStreak:longestStreak(),bestWeekSteps,bestGymWeek:Math.max(0,...gyms),gymGoalWeeks:gyms.filter(c=>c>=GOAL.gym).length}; }
 function trophyShelf(){ const h=historyStats(); const got=TROPHIES.filter(t=>t.test(h)).length;
-  return `<div class="ovrow" style="margin-top:20px"><span>Trophy shelf</span><span style="color:var(--text-faint);font-size:12px">${got}/${TROPHIES.length} earned</span></div>`
+  const rank=got>=15?'Relentless':got>=11?'Athlete':got>=7?'Strider':got>=3?'Mover':'Getting started';
+  return `<div class="ovrow" style="margin-top:20px"><span>Trophy shelf · <b>${rank}</b></span><span style="color:var(--text-faint);font-size:12px">${got}/${TROPHIES.length} earned</span></div>`
     +'<div class="shelf">'+TROPHIES.map(t=>{ const on=t.test(h); return `<div class="trophy${on?'':' locked'}"><div class="te">${t.e}</div><div class="tl">${t.t}</div></div>`; }).join('')+'</div>'; }
+// honest insights (beyond the stock Health app), computed from history
+const WD=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+function bestWeekday(){ const sum=new Array(7).fill(0),cnt=new Array(7).fill(0);
+  for(const k in store.days){ const wd=(new Date(k+'T00:00').getDay()+6)%7; sum[wd]+=num(store.days[k].steps); cnt[wd]++; }
+  let bi=0,bv=-1; for(let i=0;i<7;i++){ const a=cnt[i]?sum[i]/cnt[i]:0; if(a>bv){bv=a;bi=i;} } return WD[bi]; }
+function monthKm(){ const n=new Date(); const pref=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0'); let km=0;
+  for(const k in store.days){ if(k.indexOf(pref)===0) km+=num(store.days[k].dist); } return km; }
+function insight(t){ return `<div class="insight">${t}</div>`; }
+function actIns(){ return Object.keys(store.days).length>=5? insight('You move most on <b>'+bestWeekday()+'</b>.') : ''; }
 
 const RANGES={ activity:['14d','12wk','12mo'], sleep:['14d','12wk','12mo'], walk:['8wk','1yr'] };
 const RLABEL={'14d':'14 days','12wk':'12 weeks','12mo':'12 months','8wk':'8 weeks','1yr':'Year'};
@@ -625,11 +648,11 @@ const RENDER={
     if(range==='14d'){ const ds=ld(14); const v=ds.map(x=>num(x.r.steps)); const best=Math.max(...v,0);
       const avg=Math.round(v.reduce((a,b)=>a+b,0)/14); const km=ds.reduce((a,x)=>a+num(x.r.dist),0);
       return ovbars(ds.map(x=>({v:num(x.r.steps),lbl:dl(x.d),hi:best>0&&num(x.r.steps)===best})))
-        +`<div class="ovstats">${stat(avg.toLocaleString(),'14-day avg')}${stat(best.toLocaleString(),'best day')}${stat(km.toFixed(1)+' km','distance')}</div>`; }
+        +`<div class="ovstats">${stat(avg.toLocaleString(),'14-day avg')}${stat(best.toLocaleString(),'best day')}${stat(km.toFixed(1)+' km','distance')}</div>`+actIns(); }
     const A=range==='12wk'?aggWeeks(12):aggMonths(12); const best=Math.max(0,...A.map(x=>x.stepAvg));
     const days=A.filter(x=>x.days); const avg=days.length?Math.round(days.reduce((a,b)=>a+b.stepAvg,0)/days.length):0;
     return ovbars(A.map(x=>({v:Math.round(x.stepAvg),lbl:x.lbl,hi:x.stepAvg>0&&x.stepAvg===best})))
-      +`<div class="ovstats">${stat(avg.toLocaleString(),'avg steps/day')}${stat(Math.round(best).toLocaleString(),'best '+(range==='12wk'?'week':'month'))}</div>`; },
+      +`<div class="ovstats">${stat(avg.toLocaleString(),'avg steps/day')}${stat(Math.round(best).toLocaleString(),'best '+(range==='12wk'?'week':'month'))}</div>`+actIns(); },
   sleep(range){ range=range||'14d';
     if(range==='14d'){ const ds=ld(14); const v=ds.map(x=>x.r.sleep||0); const have=v.filter(x=>x>0);
       const avg=have.length?have.reduce((a,b)=>a+b,0)/have.length:0; const best=Math.max(...v,0); const worst=have.length?Math.min(...have):0;
@@ -652,7 +675,7 @@ const RENDER={
   walk(range){ range=range||'8wk'; const span=range==='1yr'?364:56;
     const ds=ld(span); const firstDow=(ds[0].d.getDay()+6)%7; let pad=''; for(let i=0;i<firstDow;i++) pad+='<div class="c" style="visibility:hidden"></div>';
     const cells=ds.map(x=>`<div class="c${x.r.walk?' on':''}" title="${x.k}"></div>`).join('');
-    return `<div class="heat${range==='1yr'?' yr':''}">${pad}${cells}</div><div class="ovstats">${stat(streak,'current streak')}${stat(longestStreak(),'longest')}${stat(monthPct()+'%','this month')}</div>`; },
+    return `<div class="heat${range==='1yr'?' yr':''}">${pad}${cells}</div><div class="ovstats">${stat(streak,'current streak')}${stat(longestStreak(),'longest')}${stat(monthPct()+'%','this month')}</div>`+insight('<b>'+monthKm().toFixed(1)+' km</b> walked this month.'); },
   clock(){ const sum=new Array(24).fill(0); let dys=0; for(const k in store.days){ const h=store.days[k].hours; if(h&&h.length===24){ dys++; for(let i=0;i<24;i++) sum[i]+=num(h[i]); } }
     const avg=sum.map(s=>dys?s/dys:0);
     const ranked=[...Array(24).keys()].filter(i=>avg[i]>0).sort((a,b)=>avg[b]-avg[a]).slice(0,3);
