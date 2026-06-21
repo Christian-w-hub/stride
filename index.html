@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<title>STRIDE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --text:#F4F4F5; --text-dim:#B4B4BE; --text-faint:#8A8A95;
+    --accent:#FF6A2C; --accent-2:#FFA63D; --good:#4ADE80;
+    --glass:rgba(255,255,255,.05); --glass-line:rgba(255,255,255,.10); --inset:rgba(255,255,255,.06);
+    --r:24px; --gap:18px; --pad:22px;
+    --font:"Archivo","Inter",system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:var(--font); color:var(--text); font-variant-numeric:tabular-nums;
+    -webkit-font-smoothing:antialiased; min-height:100%;
+    padding:max(22px,env(safe-area-inset-top)) clamp(16px,3vw,34px) 30px;
+    background:
+      radial-gradient(120% 75% at 78% -5%, #3a3530 0%, transparent 55%),
+      radial-gradient(120% 90% at 0% 110%, #1b2530 0%, transparent 50%),
+      linear-gradient(165deg, #14161a 0%, #0c0d10 55%, #090a0c 100%);
+    background-attachment:fixed;
+  }
+  .num{font-weight:800;line-height:.92}
+  .label{font-size:12px;text-transform:uppercase;letter-spacing:.1em;font-weight:600;color:var(--text-dim)}
+  .unit{color:var(--text-faint);font-weight:600}
+  .tag{font-size:11px;color:var(--text-faint);font-weight:600;letter-spacing:.04em}
+
+  header{display:flex;justify-content:space-between;align-items:baseline;gap:16px;margin:2px 4px 18px}
+  .date{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);font-weight:600}
+  .status{font-size:clamp(17px,2.2vw,24px);font-weight:700;margin-top:2px}
+  .status b{color:var(--accent-2)}
+  .wordmark{font-size:12px;letter-spacing:.36em;font-weight:800;color:var(--text-faint)}
+
+  .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:var(--gap)}
+  .card{
+    background:var(--glass); backdrop-filter:blur(22px) saturate(140%); -webkit-backdrop-filter:blur(22px) saturate(140%);
+    border:1px solid var(--glass-line); border-radius:var(--r); padding:var(--pad); position:relative; overflow:hidden;
+    box-shadow:0 1px 0 var(--inset) inset, 0 18px 40px -24px rgba(0,0,0,.8);
+  }
+  .chead{display:flex;align-items:center;gap:11px;margin-bottom:16px}
+  .chip{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font-size:18px;
+    background:linear-gradient(150deg,rgba(255,255,255,.16),rgba(255,255,255,.03));border:1px solid var(--glass-line)}
+  .ctitle{font-size:16px;font-weight:700}
+  .chead .tag{margin-left:auto}
+
+  /* placement */
+  .activity{grid-column:1 / 4} .sleep{grid-column:4 / 7} .gym{grid-column:7 / 10}
+  .hero{grid-column:10 / 13; grid-row:1 / 3; display:flex;flex-direction:column}
+  .walk{grid-column:1 / 6} .clock{grid-column:6 / 10}
+
+  /* activity */
+  .activity .big{font-size:clamp(34px,4vw,46px)}
+  .activity .row{display:flex;align-items:baseline;gap:8px}
+  .mini{display:flex;align-items:flex-end;gap:3px;height:46px;margin-top:14px}
+  .mini > span{flex:1;background:rgba(255,255,255,.10);border-radius:3px 3px 0 0;min-height:2px;transition:height .6s cubic-bezier(.2,.7,.2,1)}
+  .mini > span.on{background:linear-gradient(180deg,var(--accent-2),var(--accent))}
+  .dist{margin-top:12px;color:var(--text-dim);font-size:14px;font-weight:600}
+  .dist b{color:var(--text);font-weight:800}
+
+  /* sleep */
+  .sleep .big{font-size:clamp(34px,4vw,46px)}
+  .sleep .row{display:flex;align-items:baseline;gap:6px}
+  .spark{margin-top:8px;width:100%;height:54px;display:block}
+  .note{font-size:11px;color:var(--text-faint);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-top:10px}
+
+  /* gym */
+  .gym .big{font-size:clamp(40px,5vw,56px)}
+  .gym .big .sub{font-size:.4em;color:var(--text-faint);font-weight:700}
+  .pips{display:flex;gap:7px;margin-top:14px}
+  .pip{height:12px;flex:1;border-radius:999px;background:rgba(255,255,255,.10)}
+  .pip.on{background:linear-gradient(90deg,var(--accent),var(--accent-2))}
+  .gym .foot{color:var(--text-dim);font-size:14px;font-weight:600;margin-top:14px}
+
+  /* hero gauge */
+  .hero{align-items:center;justify-content:center;text-align:center;gap:6px;
+    background:linear-gradient(165deg,rgba(255,255,255,.07),rgba(255,255,255,.02))}
+  .hero .iconrow{display:flex;gap:7px;flex-wrap:wrap;justify-content:center;margin-bottom:6px}
+  .hero .ic{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-size:13px;
+    background:rgba(255,255,255,.07);border:1px solid var(--glass-line);opacity:.7}
+  .gauge{width:100%;max-width:240px;margin-top:auto}
+  .gwrap{position:relative}
+  .gval{position:absolute;left:0;right:0;top:46%;transform:translateY(-50%)}
+  .gval .num{font-size:clamp(40px,4.4vw,54px)}
+  .gval .pct{font-size:.5em;color:var(--text-faint);font-weight:700}
+  .gcap{font-size:18px;font-weight:700;margin-top:2px}
+  .gsub{font-size:12px;color:var(--text-faint);font-weight:600;margin-bottom:6px}
+
+  /* walk */
+  .walk .body{display:flex;align-items:center;gap:22px}
+  .ring{flex:0 0 auto}
+  .walk .state{font-size:30px;font-weight:800}
+  .walk .state.done{color:var(--good)}
+  .walk .sub{color:var(--text-faint);font-size:14px;font-weight:600;margin-top:4px}
+  .walk .streak{margin-left:auto;text-align:right}
+  .walk .streak .num{font-size:34px}
+  .walk .streak .lbl{font-size:12px;color:var(--text-faint);font-weight:600;margin-top:2px}
+
+  /* movement clock */
+  .bars{display:flex;align-items:flex-end;gap:3px;height:60px;margin-bottom:6px}
+  .bars > span{flex:1;background:rgba(255,255,255,.10);border-radius:3px 3px 0 0;min-height:2px;transition:height .6s cubic-bezier(.2,.7,.2,1)}
+  .bars > span.peak{background:linear-gradient(180deg,var(--accent-2),var(--accent))}
+  .bars > span.now{outline:2px solid rgba(255,255,255,.45);outline-offset:1px}
+  .axis{display:flex;justify-content:space-between;font-size:11px;color:var(--text-faint);font-weight:600;margin-bottom:12px}
+  .clock .foot{color:var(--text-dim);font-size:14px;font-weight:600}
+  .clock .foot b{color:var(--accent-2)}
+
+  .stale{display:none;margin:14px 4px 0;font-size:12px;color:var(--text-faint);text-align:center}
+  .stale.show{display:block}
+
+  @media (max-width:980px){
+    .activity,.sleep,.gym,.walk,.clock{grid-column:span 6}
+    .hero{grid-column:span 6;grid-row:auto}
+  }
+  @media (max-width:560px){ .grid>*{grid-column:1 / -1 !important} }
+
+  .card{opacity:0;transform:translateY(8px);animation:rise .5s cubic-bezier(.2,.7,.2,1) forwards}
+  .grid>.card:nth-child(2){animation-delay:.05s}.grid>.card:nth-child(3){animation-delay:.1s}
+  .grid>.card:nth-child(4){animation-delay:.15s}.grid>.card:nth-child(5){animation-delay:.2s}.grid>.card:nth-child(6){animation-delay:.25s}
+  @keyframes rise{to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){.card{animation:none;opacity:1;transform:none}*{transition:none!important}}
+</style>
+</head>
+<body>
+  <header>
+    <div>
+      <div class="date" id="date">—</div>
+      <div class="status" id="status">Let’s move.</div>
+    </div>
+    <div class="wordmark">STRIDE</div>
+  </header>
+
+  <main class="grid">
+    <!-- ACTIVITY -->
+    <section class="card activity">
+      <div class="chead"><div class="chip">🏃</div><div class="ctitle">Activity</div><div class="tag">Today</div></div>
+      <div class="row"><span class="num big" id="steps">0</span><span class="unit" id="stepsGoal">/ 8,000</span></div>
+      <div class="mini" id="mini"></div>
+      <div class="dist">Distance <b id="dist">—</b> km</div>
+    </section>
+
+    <!-- SLEEP -->
+    <section class="card sleep">
+      <div class="chead"><div class="chip">🌙</div><div class="ctitle">Sleep</div><div class="tag">Last 7 nights</div></div>
+      <div class="row"><span class="num big" id="sleepH">—</span><span class="unit">h</span><span class="num" id="sleepM" style="font-size:22px;color:var(--text-dim)"></span></div>
+      <svg class="spark" id="sleepSpark" viewBox="0 0 200 54" preserveAspectRatio="none" aria-hidden="true"></svg>
+      <div class="note">Estimated · charging + do not disturb</div>
+    </section>
+
+    <!-- GYM -->
+    <section class="card gym">
+      <div class="chead"><div class="chip">🏋️</div><div class="ctitle">Gym</div><div class="tag">This week</div></div>
+      <div class="num big"><span id="gym">0</span><span class="sub"> / <span id="gymGoal">5</span></span></div>
+      <div class="pips" id="pips"></div>
+      <div class="foot" id="gymFoot">—</div>
+    </section>
+
+    <!-- HERO GAUGE -->
+    <section class="card hero">
+      <div class="iconrow"><span class="ic">🏃</span><span class="ic">🚶</span><span class="ic">🏋️</span><span class="ic">🌙</span><span class="ic">📈</span></div>
+      <div class="gauge">
+        <div class="gwrap">
+          <svg viewBox="0 0 200 116" width="100%" aria-hidden="true">
+            <path d="M16,108 A92,92 0 0 1 184,108" fill="none" stroke="rgba(255,255,255,.10)" stroke-width="9" stroke-linecap="round" pathLength="100"/>
+            <path id="gaugeArc" d="M16,108 A92,92 0 0 1 184,108" fill="none" stroke="url(#gg)" stroke-width="9" stroke-linecap="round"
+                  pathLength="100" stroke-dasharray="0 100" style="transition:stroke-dasharray .8s cubic-bezier(.2,.7,.2,1)"/>
+            <g id="ticks"></g>
+            <defs><linearGradient id="gg" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0" stop-color="var(--accent)"/><stop offset="1" stop-color="var(--accent-2)"/>
+            </linearGradient></defs>
+          </svg>
+          <div class="gval"><span class="num" id="score">0</span><span class="pct">%</span></div>
+        </div>
+      </div>
+      <div class="gcap" id="scoreCap">On track</div>
+      <div class="gsub">Weekly consistency · gym · walks · steps</div>
+    </section>
+
+    <!-- WALK -->
+    <section class="card walk">
+      <div class="chead"><div class="chip">🚶</div><div class="ctitle">Daily walk</div><div class="tag">Today</div></div>
+      <div class="body">
+        <svg class="ring" id="walkRing" width="86" height="86" viewBox="0 0 86 86" aria-hidden="true">
+          <circle cx="43" cy="43" r="37" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="8"/>
+          <circle id="walkArc" cx="43" cy="43" r="37" fill="none" stroke="var(--accent)" stroke-width="8"
+                  stroke-linecap="round" transform="rotate(-90 43 43)"
+                  stroke-dasharray="232.5" stroke-dashoffset="232.5" style="transition:stroke-dashoffset .7s cubic-bezier(.2,.7,.2,1)"/>
+        </svg>
+        <div>
+          <div class="state" id="walkState">Open</div>
+          <div class="sub" id="walkSub">—</div>
+        </div>
+        <div class="streak"><div class="num" id="streak">0</div><div class="lbl" id="consistency">—</div></div>
+      </div>
+    </section>
+
+    <!-- MOVEMENT CLOCK -->
+    <section class="card clock">
+      <div class="chead"><div class="chip">⏱️</div><div class="ctitle">Movement clock</div><div class="tag">Your rhythm</div></div>
+      <div class="bars" id="clockBars"></div>
+      <div class="axis"><span>6am</span><span>noon</span><span>6pm</span><span>11pm</span></div>
+      <div class="foot" id="clockInsight">—</div>
+    </section>
+  </main>
+  <div class="stale" id="stale"></div>
+
+<script>
+// ---- config (edit your goals) ------------------------------------------
+const GOAL = { gym:5, steps:8000, sleep:7.5, walkSteps:7000 };
+
+// ---- helpers -----------------------------------------------------------
+const $ = id => document.getElementById(id);
+const todayKey = d => { const x=d||new Date(); return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0'); };
+const num = n => Number(n)||0;
+
+// ---- ingest ------------------------------------------------------------
+const p = new URLSearchParams(location.search);
+const has = k => p.has(k) && p.get(k)!=='';
+let store={}; try{ store=JSON.parse(localStorage.getItem('stride')||'{}'); }catch(e){ store={}; }
+store.days = store.days || {};
+const now = new Date(); const key = todayKey(now);
+
+if (p.toString().length>0){
+  const today = store.days[key] || {};
+  if (has('steps')) today.steps = num(p.get('steps'));
+  if (has('dist'))  today.dist  = parseFloat(p.get('dist'))||0;
+  if (has('sleep')) today.sleep = parseFloat(p.get('sleep'))||0;
+  if (has('gym'))   store.gymWeek = { week: weekId(now), count: num(p.get('gym')) };
+  if (has('hours')) today.hours = p.get('hours').split(',').map(num).slice(0,24);
+  if (has('walk'))  today.walkExplicit = today.walk = num(p.get('walk'))>0;
+  else if (today.steps!=null && !today.walkExplicit) today.walk = today.steps >= GOAL.walkSteps;
+  store.days[key] = today; store.updated = now.getTime();
+  const cut=(()=>{const c=new Date(now);c.setDate(c.getDate()-60);return todayKey(c);})();
+  for(const d in store.days){ if(d<cut) delete store.days[d]; }
+  try{ localStorage.setItem('stride', JSON.stringify(store)); }catch(e){}
+}
+
+function weekId(d){ const x=new Date(d); const off=(x.getDay()+6)%7; x.setDate(x.getDate()-off); return todayKey(x); }
+
+// ---- view model --------------------------------------------------------
+const day = store.days[key] || {};
+const gym = (store.gymWeek && store.gymWeek.week===weekId(now)) ? store.gymWeek.count : 0;
+const steps = num(day.steps), dist = num(day.dist), sleep = day.sleep||0, walkDone = !!day.walk;
+
+function walkStreak(){ let n=0; const d=new Date(now);
+  if(!store.days[todayKey(d)] || !store.days[todayKey(d)].walk) d.setDate(d.getDate()-1);
+  for(;;){ const r=store.days[todayKey(d)]; if(r&&r.walk){n++;d.setDate(d.getDate()-1);} else break; } return n; }
+function weekly(){ let done=0; const elapsed=((now.getDay()+6)%7)+1;
+  for(let i=0;i<elapsed;i++){ const d=new Date(now); d.setDate(d.getDate()-i);
+    const r=store.days[todayKey(d)]; if(r&&r.walk) done++; } return {done, elapsed}; }
+const streak = walkStreak(), wc = weekly();
+
+// ---- render: header ----------------------------------------------------
+$('date').textContent = now.toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'});
+
+// activity
+$('steps').textContent = steps.toLocaleString();
+$('stepsGoal').textContent = '/ '+GOAL.steps.toLocaleString();
+$('dist').textContent = dist? dist.toFixed(1):'—';
+(function(){ const m=$('mini'); m.innerHTML=''; const h=day.hours||[]; const max=Math.max(1,...h.slice(6,24));
+  for(let x=6;x<=23;x++){ const s=document.createElement('span'); if((h[x]||0)>0) s.className='on';
+    m.appendChild(s); requestAnimationFrame(()=> s.style.height=Math.round(((h[x]||0)/max)*100)+'%'); } })();
+
+// sleep
+$('sleepH').textContent = sleep? Math.floor(sleep):'—';
+$('sleepM').textContent = sleep? String(Math.round((sleep%1)*60)).padStart(2,'0')+'m':'';
+drawSpark($('sleepSpark'), (function(){ const o=[]; for(let i=6;i>=0;i--){ const d=new Date(now); d.setDate(d.getDate()-i);
+  const r=store.days[todayKey(d)]; o.push(r&&r.sleep?r.sleep:0); } return o; })());
+
+// gym
+$('gym').textContent = gym; $('gymGoal').textContent = GOAL.gym;
+$('gymFoot').textContent = gym>=GOAL.gym ? "That’s the week." : (GOAL.gym-gym)+" to go this week";
+(function(){ const c=$('pips'); for(let i=0;i<GOAL.gym;i++){ const e=document.createElement('div'); e.className='pip'+(i<gym?' on':''); c.appendChild(e);} })();
+
+// hero gauge — honest weekly consistency from real behaviours
+(function(){
+  let sum7=0,d7=0; for(let i=0;i<wc.elapsed;i++){ const d=new Date(now); d.setDate(d.getDate()-i);
+    const r=store.days[todayKey(d)]; if(r&&r.steps!=null){ sum7+=r.steps; d7++; } }
+  const gymPart=Math.min(1,gym/GOAL.gym), walkPart=wc.elapsed?wc.done/wc.elapsed:0,
+        stepPart=d7?Math.min(1,(sum7/d7)/GOAL.steps):0;
+  const score=Math.round(100*(0.4*gymPart+0.4*walkPart+0.2*stepPart));
+  $('score').textContent=score;
+  $('scoreCap').textContent = score>=80?'Strong week':score>=55?'On track':score>=30?'Building':'Early days';
+  requestAnimationFrame(()=> $('gaugeArc').style.strokeDasharray = score+' 100');
+  const ticks=$('ticks'); const N=44; let t='';
+  for(let i=0;i<=N;i++){ const a=Math.PI*(1 - i/N); const x=100+Math.cos(a)*92, y=108-Math.sin(a)*92;
+    const x2=100+Math.cos(a)*84, y2=108-Math.sin(a)*84;
+    t+=`<line x1="${x.toFixed(1)}" y1="${y.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="rgba(255,255,255,.08)" stroke-width="1.4"/>`; }
+  ticks.innerHTML=t;
+})();
+
+// walk
+$('walkState').textContent = walkDone?'Done':'Open';
+$('walkState').classList.toggle('done', walkDone);
+$('walkSub').textContent = walkDone?'Nice. Filled for today.':'A walk fills the ring.';
+$('streak').textContent = streak;
+$('consistency').textContent = wc.done+'/'+wc.elapsed+' this wk';
+requestAnimationFrame(()=>{ $('walkArc').style.strokeDashoffset = walkDone?0:232.5; if(walkDone) $('walkArc').style.stroke='var(--good)'; });
+
+// movement clock -----------------------------------------------------------
+function fmtHour(h){ const ap=h<12?'am':'pm'; let x=h%12; if(x===0)x=12; return x+ap; }
+(function(){
+  const START=6,END=23; const sum=new Array(24).fill(0); let days=0;
+  for(const d in store.days){ const h=store.days[d].hours; if(h&&h.length===24){ days++; for(let i=0;i<24;i++) sum[i]+=num(h[i]); } }
+  const avg=sum.map(s=> days? s/days:0); const todayH=day.hours||[];
+  const max=Math.max(1,...avg.slice(START,END+1));
+  const ranked=[...Array(24).keys()].filter(h=>avg[h]>0).sort((a,b)=>avg[b]-avg[a]);
+  const top=new Set(ranked.slice(0,4)); const cur=now.getHours();
+  let suggest=null;
+  if(!walkDone){ for(let h=Math.max(cur,START);h<=END;h++){ if(top.has(h)&&(todayH[h]||0)<avg[h]*0.4){suggest=h;break;} }
+    if(suggest==null) for(let h=Math.max(cur,START);h<=END;h++){ if(top.has(h)){suggest=h;break;} } }
+  const bars=$('clockBars'); bars.innerHTML='';
+  for(let h=START;h<=END;h++){ const s=document.createElement('span'); let c=''; if(top.has(h))c='peak'; if(h===cur)c+=' now';
+    s.className=c.trim(); s.title=fmtHour(h)+' · '+Math.round(avg[h])+' steps avg'; bars.appendChild(s);
+    requestAnimationFrame(()=> s.style.height=Math.round((avg[h]/max)*100)+'%'); }
+  const ins=$('clockInsight');
+  if(days<3){ ins.textContent='Learning your rhythm — a few more synced days and I’ll spot when you usually move.'; return; }
+  let line='Most days you move around <b>'+fmtHour(ranked[0])+'</b>.';
+  if(walkDone) line+=' Walk’s done.'; else if(suggest!=null) line+=' Good window today: <b>~'+fmtHour(suggest)+'</b>.';
+  ins.innerHTML=line;
+})();
+
+// status line ------------------------------------------------------------
+(function(){ const pool=[];
+  if(gym>=GOAL.gym) pool.push("That’s the week. <b>"+gym+" sessions.</b>");
+  if(!walkDone) pool.push("Good day to move. <b>Walk’s still open.</b>");
+  if(walkDone&&gym<GOAL.gym) pool.push("Walk done. <b>"+(GOAL.gym-gym)+" gym to go.</b>");
+  if(walkDone&&gym>=GOAL.gym) pool.push("Walk done, week done. <b>Solid.</b>");
+  if(streak>=3) pool.push("<b>"+streak+"-day</b> walk run going.");
+  if(!pool.length) pool.push("Fresh day. <b>One walk to start.</b>");
+  $('status').innerHTML = pool[ now.getDate() % pool.length ]; })();
+
+// staleness --------------------------------------------------------------
+if(store.updated){ const hrs=(Date.now()-store.updated)/3.6e6;
+  if(hrs>20){ const s=$('stale'); s.textContent='Last synced '+Math.round(hrs)+'h ago — open the iPhone shortcut to refresh.'; s.classList.add('show'); } }
+
+// sparkline --------------------------------------------------------------
+function drawSpark(svg,data){ const W=200,H=54,pad=5,max=Math.max(GOAL.sleep,...data,1);
+  const xs=i=>pad+i*((W-2*pad)/(data.length-1)), ys=v=>H-pad-(v/max)*(H-2*pad);
+  let d='',started=false; data.forEach((v,i)=>{ if(v>0){ d+=(started?'L':'M')+xs(i).toFixed(1)+' '+ys(v).toFixed(1)+' '; started=true; } });
+  svg.innerHTML=(d?`<path d="${d}" fill="none" stroke="url(#sg)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`:'')
+    +`<defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="var(--accent)"/><stop offset="1" stop-color="var(--accent-2)"/></linearGradient></defs>`
+    +data.map((v,i)=> v>0?`<circle cx="${xs(i).toFixed(1)}" cy="${ys(v).toFixed(1)}" r="${i===data.length-1?3:2}" fill="${i===data.length-1?'var(--accent-2)':'var(--text-faint)'}"/>`:'').join('');
+}
+</script>
+</body>
+</html>
