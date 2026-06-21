@@ -63,7 +63,7 @@
     border:1px solid var(--glass-line); border-radius:var(--r-card); padding:var(--pad); position:relative; overflow:hidden;
     text-shadow:0 1px 2px rgba(0,0,0,.4);
     box-shadow:inset 0 1px 0 var(--inset), 0 24px 60px -30px rgba(0,0,0,.92);
-    box-shadow:inset 0 2px 0 color-mix(in srgb, var(--ca,#fff) 24%, transparent), inset 0 1px 0 var(--inset), 0 24px 60px -30px rgba(0,0,0,.92);
+    box-shadow:inset 0 1.5px 0 rgba(255,255,255,.16), inset 0 0 0 1px rgba(255,255,255,.04), 0 24px 60px -30px rgba(0,0,0,.92);
   }
   .chead{display:flex;align-items:center;gap:11px;margin-bottom:14px}
   .chip{width:36px;height:36px;border-radius:var(--r-chip);display:grid;place-items:center;font-size:17px;border:1px solid var(--glass-line);
@@ -299,7 +299,6 @@
             <path d="M16,108 A92,92 0 0 1 184,108" fill="none" stroke="rgba(255,255,255,.10)" stroke-width="6.5" stroke-linecap="round" pathLength="100"/>
             <path id="gaugeArc" d="M16,108 A92,92 0 0 1 184,108" fill="none" stroke="url(#gg)" stroke-width="6.5" stroke-linecap="round"
                   pathLength="100" stroke-dasharray="0 100" style="transition:stroke-dasharray .8s cubic-bezier(.2,.7,.2,1)"/>
-            <g id="ticks"></g>
             <defs><linearGradient id="gg" x1="0" y1="0" x2="1" y2="0">
               <stop offset="0" stop-color="var(--accent)"/><stop offset="1" stop-color="var(--accent-2)"/>
             </linearGradient></defs>
@@ -459,10 +458,6 @@ requestAnimationFrame(()=> $('gymArc').style.strokeDasharray = Math.min(100, gym
   countUp($('score'), score);
   $('scoreCap').textContent = score>=80?'Strong week':score>=55?'On track':score>=30?'Building':'Early days';
   requestAnimationFrame(()=> $('gaugeArc').style.strokeDasharray = score+' 100');
-  let t=''; const N=44; for(let i=0;i<=N;i++){ const a=Math.PI*(1-i/N);
-    const x=100+Math.cos(a)*92,y=108-Math.sin(a)*92,x2=100+Math.cos(a)*84,y2=108-Math.sin(a)*84;
-    t+=`<line x1="${x.toFixed(1)}" y1="${y.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="rgba(255,255,255,.08)" stroke-width="1.4"/>`; }
-  $('ticks').innerHTML=t;
 })();
 
 // ---- walk: ring + 7-day history ----------------------------------------
@@ -591,8 +586,11 @@ function drawArea(svg, vals, max, gid, goalFrac, dots){
   let line='', started=false;
   vals.forEach((v,i)=>{ const X=xs(i).toFixed(1),Y=ys(v).toFixed(1); line+=(started?'L':'M')+X+' '+Y+' '; started=true; });
   const area = vals.length? `M${xs(0).toFixed(1)} ${H-pad} `+vals.map((v,i)=>'L'+xs(i).toFixed(1)+' '+ys(v).toFixed(1)).join(' ')+` L${xs(vals.length-1).toFixed(1)} ${H-pad} Z` : '';
-  const goal = goalFrac!=null ? `<line x1="${pad}" y1="${ys(goalFrac*max).toFixed(1)}" x2="${W-pad}" y2="${ys(goalFrac*max).toFixed(1)}" stroke="rgba(255,255,255,.34)" stroke-width="1" stroke-dasharray="3 3"/>` : '';
-  const pts = dots ? vals.map((v,i)=> v>0?`<circle cx="${xs(i).toFixed(1)}" cy="${ys(v).toFixed(1)}" r="${i===vals.length-1?2.2:1.4}" fill="${i===vals.length-1?'var(--cb)':'rgba(255,255,255,.7)'}"/>`:'').join('') : '';
+  const goal = goalFrac!=null ? `<line x1="${pad}" y1="${ys(goalFrac*max).toFixed(1)}" x2="${W-pad}" y2="${ys(goalFrac*max).toFixed(1)}" stroke="rgba(255,255,255,.34)" stroke-width="1.2" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"/>` : '';
+  // dots as TRUE circles despite the non-uniform viewBox stretch (counter-scale X)
+  const box=svg.getBoundingClientRect(); const sx=box.width?box.width/W:1, sy=box.height?box.height/H:1; const k=sx?(sy/sx):1;
+  const dotg=(cx,cy,r,fill)=>`<g transform="translate(${cx.toFixed(2)} ${cy.toFixed(2)}) scale(${k.toFixed(4)} 1)"><circle r="${r}" fill="${fill}"/></g>`;
+  const pts = dots ? vals.map((v,i)=> v>0? dotg(xs(i),ys(v), i===vals.length-1?2.4:1.5, i===vals.length-1?'var(--cb)':'rgba(255,255,255,.7)'):'').join('') : '';
   svg.innerHTML =
     `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--ca)" stop-opacity=".45"/><stop offset="1" stop-color="var(--ca)" stop-opacity="0"/></linearGradient></defs>`
     + (area?`<path d="${area}" fill="url(#${gid})"/>`:'') + goal
