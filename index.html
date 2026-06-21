@@ -162,6 +162,40 @@
   .streak.celebrate .num{animation:popNum .85s cubic-bezier(.2,.8,.3,1) .3s}
   @keyframes popNum{0%,100%{transform:scale(1);color:var(--text)}45%{transform:scale(1.16);color:var(--accent-2)}}
   @media (prefers-reduced-motion:reduce){.ring.celebrate,.hero.celebrate,.streak.celebrate .num{animation:none}}
+
+  /* click-to-expand overlay */
+  .card[role=button]{cursor:pointer}
+  .card[role=button]:focus-visible{outline:2px solid var(--accent-2);outline-offset:3px}
+  #overlay{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:24px;
+    background:rgba(6,7,9,.5);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);animation:ovin .25s ease}
+  #overlay[hidden]{display:none}
+  @keyframes ovin{from{opacity:0}to{opacity:1}}
+  #overlay .sheet{width:min(720px,94vw);max-height:88vh;overflow:auto;border-radius:16px;padding:24px;
+    background:linear-gradient(160deg,rgba(8,9,12,.42),rgba(8,9,12,.1)), color-mix(in srgb, var(--ca,#9a9aa6) 9%, rgba(17,18,22,.9));
+    border:1px solid var(--glass-line);text-shadow:0 1px 2px rgba(0,0,0,.4);
+    box-shadow:inset 0 2px 0 color-mix(in srgb,var(--ca,#fff) 42%,transparent), 0 40px 100px -30px rgba(0,0,0,.9);
+    animation:sheetin .3s cubic-bezier(.2,.85,.3,1)}
+  @keyframes sheetin{from{transform:translateY(12px) scale(.985);opacity:0}to{transform:none;opacity:1}}
+  @media (prefers-reduced-motion:reduce){#overlay,#overlay .sheet{animation:none}}
+  .ovhead{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+  .ovhead h2{font-size:19px;font-weight:500;flex:1}
+  #ovClose{width:34px;height:34px;border-radius:9px;border:1px solid var(--glass-line);background:rgba(255,255,255,.06);color:var(--text);font-size:13px;cursor:pointer}
+  #ovClose:hover{background:rgba(255,255,255,.12)}
+  .ovstats{display:flex;gap:24px;flex-wrap:wrap;margin-top:18px}
+  .ovstat .n{font-size:24px;font-weight:500;line-height:1}
+  .ovstat .l{font-size:11px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.07em;margin-top:4px}
+  .ovbars{display:flex;align-items:flex-end;gap:5px;height:130px;margin-top:4px}
+  .ovbars .b{flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;justify-content:flex-end;height:100%}
+  .ovbars .bar{width:100%;border-radius:5px 5px 0 0;background:linear-gradient(180deg,var(--cb),var(--ca));min-height:2px}
+  .ovbars .bar.dim{background:rgba(255,255,255,.13)}
+  .ovbars .bl{font-size:10px;color:var(--text-faint);height:12px}
+  .heat{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,1fr);gap:5px;margin-top:6px;justify-content:start}
+  .heat .c{width:15px;height:15px;border-radius:4px;background:rgba(255,255,255,.10)}
+  .heat .c.on{background:linear-gradient(150deg,var(--ca),var(--cb))}
+  .ovrow{display:flex;justify-content:space-between;align-items:center;font-size:14px;color:var(--text-dim)}
+  .ovrow b{color:var(--text);font-weight:500}
+  .compbar{height:9px;border-radius:5px;background:rgba(255,255,255,.12);overflow:hidden;margin:7px 0 16px}
+  .compbar > i{display:block;height:100%;border-radius:5px}
 </style>
 </head>
 <body>
@@ -265,6 +299,13 @@
     </section>
   </main>
   <div class="stale" id="stale"></div>
+
+  <div id="overlay" hidden>
+    <div class="sheet">
+      <div class="ovhead"><div id="ovChip" class="chip"></div><h2 id="ovTitle"></h2><button id="ovClose" aria-label="Close">✕</button></div>
+      <div id="ovBody"></div>
+    </div>
+  </div>
 
 <script>
 // ---- config ------------------------------------------------------------
@@ -478,6 +519,75 @@ function drawArea(svg, vals, max, gid, goalFrac, dots){
     + (line?`<path d="${line}" fill="none" stroke="var(--cb)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`:'')
     + pts;
 }
+
+// ---- click-to-expand ---------------------------------------------------
+const OV_TITLE={activity:'Activity',sleep:'Sleep',gym:'Gym',hero:'Consistency',walk:'Daily walk',clock:'Movement clock'};
+const OV_CHIP={activity:'🏃',sleep:'🌙',gym:'🏋️',hero:'📈',walk:'🚶',clock:'⏱️'};
+const DOW=['M','T','W','T','F','S','S'];
+const dl = d => DOW[(d.getDay()+6)%7];
+const fmtH = h => { const ap=h<12?'a':'p'; let x=h%12; if(x===0)x=12; return x+ap; };
+function fmtHrs(x){ if(!x) return '—'; const m=Math.round(x*60); return Math.floor(m/60)+'h '+String(m%60).padStart(2,'0'); }
+function ld(nn){ const out=[]; for(let i=nn-1;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); const k=todayKey(d); out.push({d,k,r:store.days[k]||{}}); } return out; }
+function ovbars(items){ const max=Math.max(...items.map(x=>x.v),1);
+  return '<div class="ovbars">'+items.map(x=>`<div class="b"><div class="bar${x.v?'':' dim'}" style="height:${x.v?Math.max(3,Math.round(x.v/max*100)):2}%;${x.hi?'box-shadow:0 0 0 2px var(--cb),0 0 12px var(--ca);':''}"></div><div class="bl">${x.lbl||''}</div></div>`).join('')+'</div>'; }
+const stat=(n,l)=>`<div class="ovstat"><div class="n">${n}</div><div class="l">${l}</div></div>`;
+function longestStreak(){ const keys=Object.keys(store.days).filter(k=>store.days[k].walk).sort();
+  let best=0,run=0,prev=null; keys.forEach(k=>{ if(prev){ const diff=Math.round((new Date(k+'T00:00')-new Date(prev+'T00:00'))/86400000); run=diff===1?run+1:1; } else run=1; prev=k; if(run>best)best=run; }); return best; }
+function monthPct(){ const n=new Date(); let done=0; for(let day=1;day<=n.getDate();day++){ const r=store.days[todayKey(new Date(n.getFullYear(),n.getMonth(),day))]; if(r&&r.walk) done++; } return Math.round(done/n.getDate()*100); }
+function weeklyNow(){ const n=new Date(); let done=0; const elapsed=((n.getDay()+6)%7)+1; for(let i=0;i<elapsed;i++){ const d=new Date(n); d.setDate(d.getDate()-i); const r=store.days[todayKey(d)]; if(r&&r.walk) done++; } return {done,elapsed}; }
+
+const RENDER={
+  activity(){ const ds=ld(14); const v=ds.map(x=>num(x.r.steps)); const best=Math.max(...v,0);
+    const avg=Math.round(v.reduce((a,b)=>a+b,0)/14); const km=ds.reduce((a,x)=>a+num(x.r.dist),0);
+    return ovbars(ds.map(x=>({v:num(x.r.steps),lbl:dl(x.d),hi:best>0&&num(x.r.steps)===best})))
+      +`<div class="ovstats">${stat(avg.toLocaleString(),'14-day avg')}${stat(best.toLocaleString(),'best day')}${stat(km.toFixed(1)+' km','total distance')}</div>`; },
+  sleep(){ const ds=ld(14); const v=ds.map(x=>x.r.sleep||0); const have=v.filter(x=>x>0);
+    const avg=have.length?have.reduce((a,b)=>a+b,0)/have.length:0; const best=Math.max(...v,0); const worst=have.length?Math.min(...have):0;
+    return ovbars(ds.map(x=>({v:x.r.sleep||0,lbl:dl(x.d)})))
+      +`<div class="ovstats">${stat(fmtHrs(avg),'14-night avg')}${stat(fmtHrs(best),'longest')}${stat(fmtHrs(worst),'shortest')}</div>`
+      +`<div class="note" style="margin-top:14px">Estimated · charging + do not disturb</div>`; },
+  gym(){ const wkk=weekId(new Date()); const cur=(store.gymWeek&&store.gymWeek.week===wkk)?store.gymWeek.count:0;
+    const hist=Object.entries(store.gymWeeks||{}).sort((a,b)=>a[0]<b[0]?-1:1).slice(-7);
+    const all=hist.concat([[wkk,cur]]);
+    const hits=all.filter(([,c])=>c>=GOAL.gym).length;
+    let h=ovbars(all.map(([w,c])=>({v:c,lbl:w.slice(8)+'/'+w.slice(5,7),hi:c>=GOAL.gym})))
+      +`<div class="ovstats">${stat(cur+'/'+GOAL.gym,'this week')}${stat(hits,'weeks at goal')}</div>`;
+    if(all.length<=1) h+=`<div class="note" style="margin-top:14px">Weekly history builds from here as you keep syncing.</div>`;
+    return h; },
+  walk(){ const ds=ld(56); const firstDow=(ds[0].d.getDay()+6)%7; let pad=''; for(let i=0;i<firstDow;i++) pad+='<div class="c" style="visibility:hidden"></div>';
+    const cells=ds.map(x=>`<div class="c${x.r.walk?' on':''}" title="${x.k}"></div>`).join('');
+    return `<div class="heat">${pad}${cells}</div><div class="ovstats">${stat(streak,'current streak')}${stat(longestStreak(),'longest')}${stat(monthPct()+'%','this month')}</div>`; },
+  clock(){ const sum=new Array(24).fill(0); let dys=0; for(const k in store.days){ const h=store.days[k].hours; if(h&&h.length===24){ dys++; for(let i=0;i<24;i++) sum[i]+=num(h[i]); } }
+    const avg=sum.map(s=>dys?s/dys:0);
+    const ranked=[...Array(24).keys()].filter(i=>avg[i]>0).sort((a,b)=>avg[b]-avg[a]).slice(0,3);
+    return ovbars(avg.map((v,i)=>({v,lbl:i%6===0?fmtH(i):''})))
+      +`<div class="ovstats">${stat(dys,'days learned')}${stat(ranked.length?ranked.map(fmtH).join('  '):'—','top windows')}</div>`; },
+  hero(){ const wkk=weekId(new Date()); const w=weeklyNow();
+    const gymc=(store.gymWeek&&store.gymWeek.week===wkk)?store.gymWeek.count:0;
+    let s7=0,d7=0; for(let i=0;i<w.elapsed;i++){ const d=new Date(); d.setDate(d.getDate()-i); const r=store.days[todayKey(d)]; if(r&&r.steps!=null){s7+=r.steps;d7++;} }
+    const gP=Math.min(1,gymc/GOAL.gym), wP=w.elapsed?w.done/w.elapsed:0, sP=d7?Math.min(1,(s7/d7)/GOAL.steps):0;
+    const score=Math.round(100*(0.4*gP+0.4*wP+0.2*sP));
+    const comp=(l,f,wt,c)=>`<div class="ovrow"><span>${l} · <b>${Math.round(f*100)}%</b></span><span style="color:var(--text-faint);font-size:12px">weight ${wt}</span></div><div class="compbar"><i style="width:${Math.round(f*100)}%;background:${c}"></i></div>`;
+    return `<div class="ovstat" style="margin-bottom:10px"><div class="n">${score}%</div><div class="l">weekly consistency</div></div>`
+      +comp('Gym',gP,'40%','var(--c-gym)')+comp('Walks',wP,'40%','var(--c-walk)')+comp('Steps',sP,'20%','var(--c-act)'); }
+};
+
+function openOverlay(id){ const ov=$('overlay'), sheet=ov.querySelector('.sheet');
+  const cs=getComputedStyle(document.querySelector('.'+id));
+  sheet.style.setProperty('--ca', cs.getPropertyValue('--ca').trim()||'#FF6A2C');
+  sheet.style.setProperty('--cb', cs.getPropertyValue('--cb').trim()||'#FFA63D');
+  $('ovChip').textContent=OV_CHIP[id]; $('ovTitle').textContent=OV_TITLE[id];
+  $('ovBody').innerHTML=RENDER[id](); ov.hidden=false;
+}
+function closeOverlay(){ $('overlay').hidden=true; }
+$('ovClose').addEventListener('click', closeOverlay);
+$('overlay').addEventListener('click', e=>{ if(e.target.id==='overlay') closeOverlay(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeOverlay(); });
+['activity','sleep','gym','hero','walk','clock'].forEach(id=>{ const c=document.querySelector('.'+id); if(!c) return;
+  c.setAttribute('role','button'); c.setAttribute('tabindex','0');
+  c.addEventListener('click', ()=>openOverlay(id));
+  c.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); openOverlay(id); } });
+});
 </script>
 </body>
 </html>
