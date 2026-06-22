@@ -59,8 +59,8 @@
 
   .num{font-weight:500;line-height:.95}
   .label{font-size:12px;text-transform:uppercase;letter-spacing:.1em;font-weight:500;color:var(--text-dim)}
-  .unit{color:var(--text-faint);font-weight:400}
-  .tag{font-size:11px;color:var(--text-faint);font-weight:400;letter-spacing:.04em}
+  .unit{color:var(--text-faint);font-weight:500}
+  .tag{font-size:11px;color:var(--text-faint);font-weight:500;letter-spacing:.04em}
 
   header{display:flex;justify-content:space-between;align-items:baseline;gap:16px;margin:2px 4px 18px}
   .date{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);font-weight:400}
@@ -108,7 +108,7 @@
   /* sleep */
   .delta{font-size:13px;font-weight:500;color:var(--good)}
   .delta.down{color:var(--accent-2)}
-  .note{font-size:11px;color:var(--text-faint);font-weight:400;text-transform:uppercase;letter-spacing:.05em;margin-top:8px}
+  .note{font-size:11px;color:var(--text-faint);font-weight:500;text-transform:uppercase;letter-spacing:.05em;margin-top:8px}
 
   /* gym — segmented progress ring */
   .gym .body{display:flex;align-items:center;gap:18px}
@@ -139,7 +139,7 @@
   .walk .sub{color:var(--text-faint);font-size:13px;font-weight:400;margin-top:4px}
   .week{display:flex;gap:7px;margin-left:auto;text-align:center}
   .week .d{display:flex;flex-direction:column;align-items:center;gap:6px}
-  .week .dot{width:11px;height:11px;border-radius:50%;background:rgba(255,255,255,.12)}
+  .week .dot{width:11px;height:11px;border-radius:50%;background:rgba(255,255,255,.18)}
   .week .dot.on{background:linear-gradient(150deg,var(--viz),var(--viz2))}
   .week .dot.today{outline:2px solid rgba(255,255,255,.5);outline-offset:2px}
   .week .dl{font-size:10px;color:var(--text-faint);text-transform:uppercase;font-weight:400}
@@ -149,7 +149,7 @@
 
   /* movement clock */
   .bars{display:flex;align-items:flex-end;gap:4px;height:56px;margin-bottom:6px}
-  .bars > span{flex:1;background:rgba(255,255,255,.12);border-radius:var(--r-el) var(--r-el) 0 0;min-height:2px;transition:height .65s cubic-bezier(.34,1.25,.64,1)}
+  .bars > span{flex:1;background:rgba(255,255,255,.18);border-radius:var(--r-el) var(--r-el) 0 0;min-height:2px;transition:height .65s cubic-bezier(.34,1.25,.64,1)}
   .bars > span.peak{background:linear-gradient(180deg,var(--viz2),var(--viz))}
   .bars > span.now{outline:2px solid rgba(255,255,255,.45);outline-offset:1px}
   .axis{display:flex;justify-content:space-between;font-size:11px;color:var(--text-faint);font-weight:400;margin-bottom:12px}
@@ -310,7 +310,7 @@
       <div class="body">
         <div class="gring">
           <svg width="104" height="104" viewBox="0 0 104 104" aria-hidden="true">
-            <circle cx="52" cy="52" r="44" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="7"/>
+            <circle cx="52" cy="52" r="44" fill="none" stroke="rgba(255,255,255,.22)" stroke-width="7"/>
             <circle id="gymArc" cx="52" cy="52" r="44" fill="none" stroke="url(#gymg)" stroke-width="7" stroke-linecap="round"
                     transform="rotate(-90 52 52)" pathLength="100" stroke-dasharray="0 100" style="transition:stroke-dasharray .8s cubic-bezier(.2,.8,.3,1)"/>
             <g id="gymTicks"></g>
@@ -330,7 +330,7 @@
       <div class="gauge">
         <div class="gwrap">
           <svg viewBox="0 0 200 116" width="100%" aria-hidden="true">
-            <path d="M16,108 A92,92 0 0 1 184,108" fill="none" stroke="rgba(255,255,255,.10)" stroke-width="6.5" stroke-linecap="round" pathLength="100"/>
+            <path d="M16,108 A92,92 0 0 1 184,108" fill="none" stroke="rgba(255,255,255,.20)" stroke-width="6.5" stroke-linecap="round" pathLength="100"/>
             <path id="gaugeArc" d="M16,108 A92,92 0 0 1 184,108" fill="none" stroke="url(#gg)" stroke-width="6.5" stroke-linecap="round"
                   pathLength="100" stroke-dasharray="0 100" style="transition:stroke-dasharray .8s cubic-bezier(.2,.7,.2,1)"/>
             <defs><linearGradient id="gg" x1="0" y1="0" x2="1" y2="0">
@@ -349,7 +349,7 @@
       <div class="chead"><div class="chip" data-ic="footprints"></div><div class="ctitle">Daily walk</div><div class="tag">Today</div></div>
       <div class="body">
         <svg class="ring" id="walkRing" width="80" height="80" viewBox="0 0 80 80" aria-hidden="true">
-          <circle cx="40" cy="40" r="34" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="6"/>
+          <circle cx="40" cy="40" r="34" fill="none" stroke="rgba(255,255,255,.22)" stroke-width="6"/>
           <circle id="walkArc" cx="40" cy="40" r="34" fill="none" stroke="url(#walkg)" stroke-width="6"
                   stroke-linecap="round" transform="rotate(-90 40 40)"
                   stroke-dasharray="213.6" stroke-dashoffset="213.6" style="transition:stroke-dashoffset .7s cubic-bezier(.2,.7,.2,1)"/>
