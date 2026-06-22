@@ -408,8 +408,8 @@ const silent = sessionStorage.getItem('strideSilent')==='1'; sessionStorage.remo
 if(silent) document.documentElement.classList.add('silent');
 // === Paste your Firebase Realtime Database URL here to turn on always-on cross-device sync ===
 // e.g. 'https://stride-xxxx-default-rtdb.firebaseio.com'  (leave '' for local / URL-param mode)
-const FIREBASE_URL = '';
-const FIREBASE_KEY = '';   // optional DB secret for writes (manual gym log). Leave '' if your rules allow open writes to /stride.
+const FIREBASE_URL = 'https://stride-dash-c3e2a-default-rtdb.europe-west1.firebasedatabase.app';
+const FIREBASE_KEY = '';   // intentionally empty: the page is public, so the write secret lives ONLY in the phone Shortcuts. Do not put it here.
 const voice = (()=>{ try{ return localStorage.getItem('strideVoice')||'full'; }catch(e){ return 'full'; } })(); // full | subtle | off
 const bgPref = (()=>{ try{ return localStorage.getItem('strideBg')||'auto'; }catch(e){ return 'auto'; } })(); // 'auto' | SKY index
 const wxPref = (()=>{ try{ return localStorage.getItem('strideWx')||'auto'; }catch(e){ return 'auto'; } })(); // 'auto' | forced weather class (preview)
