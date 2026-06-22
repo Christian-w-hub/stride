@@ -407,6 +407,7 @@ if(silent) document.documentElement.classList.add('silent');
 // === Paste your Firebase Realtime Database URL here to turn on always-on cross-device sync ===
 // e.g. 'https://stride-xxxx-default-rtdb.firebaseio.com'  (leave '' for local / URL-param mode)
 const FIREBASE_URL = '';
+const FIREBASE_KEY = '';   // optional DB secret for writes (manual gym log). Leave '' if your rules allow open writes to /stride.
 const voice = (()=>{ try{ return localStorage.getItem('strideVoice')||'full'; }catch(e){ return 'full'; } })(); // full | subtle | off
 const bgPref = (()=>{ try{ return localStorage.getItem('strideBg')||'auto'; }catch(e){ return 'auto'; } })(); // 'auto' | SKY index
 const wxPref = (()=>{ try{ return localStorage.getItem('strideWx')||'auto'; }catch(e){ return 'auto'; } })(); // 'auto' | forced weather class (preview)
@@ -738,10 +739,22 @@ function loadWeather(){
 
 // ---- Firebase live sync (always-on, both devices, no manual refresh) ----
 function applyRemote(remote){
-  if(!remote || typeof remote!=='object' || !remote.days) return;
-  if(remote.updated && remote.updated===store.updated) return;        // nothing new since last paint
-  try{ const merged=Object.assign({}, remote, {celebrated: store.celebrated||remote.celebrated||{}}); localStorage.setItem('stride', JSON.stringify(merged)); }catch(e){}
-  sessionStorage.setItem('strideSilent','1'); location.reload();      // seamless re-render with fresh data (celebration state preserved)
+  if(!remote || typeof remote!=='object' || !remote.updated) return;  // only act on stamped writes (avoids empty-DB loops)
+  if(remote.updated===store.updated) return;                          // nothing new since last paint
+  try{
+    const L=store;
+    const merged=Object.assign({}, L, remote);
+    merged.days       = Object.assign({}, L.days||{}, remote.days||{});         // remote days win per-day; local-only days kept
+    merged.gymWeeks   = Object.assign({}, remote.gymWeeks||{}, L.gymWeeks||{}); // union of week history
+    merged.celebrated = L.celebrated||remote.celebrated||{};                    // never replay celebrations
+    merged.gymManual  = L.gymManual||{};                                        // dashboard-only manual-log memory
+    const wk=weekId(new Date());
+    const lc=(L.gymWeek&&L.gymWeek.week===wk)?(+L.gymWeek.count||0):0;
+    const rc=(remote.gymWeek&&remote.gymWeek.week===wk)?(+remote.gymWeek.count||0):0;
+    if(lc||rc) merged.gymWeek={week:wk,count:Math.max(lc,rc)};                  // a local manual bump is never lost to a stale remote
+    localStorage.setItem('stride', JSON.stringify(merged));
+  }catch(e){ return; }
+  sessionStorage.setItem('strideSilent','1'); location.reload();      // seamless re-render with fresh data
 }
 function pollFirebase(){ if(!FIREBASE_URL) return;
   fetch(FIREBASE_URL.replace(/\/+$/,'')+'/stride.json',{cache:'no-store'})
@@ -945,8 +958,16 @@ function logGymToday(){ try{
   if(!store.gymWeek || store.gymWeek.week!==wk){ if(store.gymWeek) store.gymWeeks[store.gymWeek.week]=store.gymWeek.count; store.gymWeek={week:wk,count:0}; }
   if(store.gymManual[dk]){ delete store.gymManual[dk]; store.gymWeek.count=Math.max(0,(store.gymWeek.count||0)-1); }
   else { store.gymManual[dk]=true; store.gymWeek.count=(store.gymWeek.count||0)+1; }
+  store.updated=Date.now();
   localStorage.setItem('stride', JSON.stringify(store));
+  pushGym();   // propagate to Firebase (if configured) so the count shows on every device
   sessionStorage.setItem('strideSilent','1'); location.reload();   // recompute everything from one source of truth
+}catch(e){} }
+// push the weekly gym count to Firebase; keepalive so it survives the reload
+function pushGym(){ if(!FIREBASE_URL) return; try{
+  const base=FIREBASE_URL.replace(/\/+$/,''); const auth=FIREBASE_KEY?('?auth='+encodeURIComponent(FIREBASE_KEY)):'';
+  fetch(base+'/stride/gymWeek.json'+auth,{method:'PUT',keepalive:true,body:JSON.stringify(store.gymWeek)}).catch(()=>{});
+  fetch(base+'/stride/updated.json'+auth,{method:'PUT',keepalive:true,body:JSON.stringify(store.updated)}).catch(()=>{});
 }catch(e){} }
 function renderSession(key,easy,deload,sleepLow){ const base=session(key); if(!base) return '';
   const s=base.concat([Object.assign(X(wpick(key[0]==='U'?NOVEL_U:NOVEL_L,'nv'+key),2,'8–15','1','75s'),{nw:1})]); // session-appropriate dash of novelty (last = first to cut)
