@@ -752,6 +752,12 @@ function applyRemote(remote){
     const lc=(L.gymWeek&&L.gymWeek.week===wk)?(+L.gymWeek.count||0):0;
     const rc=(remote.gymWeek&&remote.gymWeek.week===wk)?(+remote.gymWeek.count||0):0;
     if(lc||rc) merged.gymWeek={week:wk,count:Math.max(lc,rc)};                  // a local manual bump is never lost to a stale remote
+    // gymBump: a one-shot session token the phone writes on a qualifying gym visit.
+    // The app owns the week logic, so the phone shortcut needs no date math — just write a new token.
+    if(remote.gymBump && remote.gymBump!==L.gymBump){
+      const c=(merged.gymWeek&&merged.gymWeek.week===wk)?(+merged.gymWeek.count||0):0;
+      merged.gymWeek={week:wk,count:c+1}; merged.gymBump=remote.gymBump;        // consume so it counts exactly once
+    }
     localStorage.setItem('stride', JSON.stringify(merged));
   }catch(e){ return; }
   sessionStorage.setItem('strideSilent','1'); location.reload();      // seamless re-render with fresh data
