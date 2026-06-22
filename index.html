@@ -29,11 +29,14 @@
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
+  html{overscroll-behavior:none}   /* no rubber-band bounce in the standalone full-screen app */
   body{
     font-family:var(--font); font-weight:400; color:var(--text); font-variant-numeric:tabular-nums;
     -webkit-font-smoothing:antialiased; min-height:100%; background:#0c0d10;
     padding:max(22px,env(safe-area-inset-top)) clamp(16px,3vw,34px) 30px;
+    -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;   /* kiosk feel: no accidental text-select / long-press menus on a display */
   }
+  input,textarea,select{-webkit-user-select:auto; user-select:auto}   /* but keep the settings fields usable */
   /* living sky — time-of-day gradient + a slow-drifting sun glow */
   #sky{position:fixed;inset:0;z-index:-2;pointer-events:none;transition:background 4s linear;will-change:transform;
     background:linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 46%, var(--sky-horizon) 100%);
