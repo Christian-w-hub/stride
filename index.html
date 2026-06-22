@@ -14,7 +14,6 @@
 <style>
   :root{
     --text:#F4F4F5; --text-dim:#D4D4DE; --text-faint:#ACACB8;
-    --card-halo:0 1px 2px rgba(0,0,0,.55), 0 0 10px rgba(0,0,0,.30);
     --accent:#FF6A2C; --accent-2:#FFA63D; --good:#4ADE80;
     /* per-card tones — greater use of colour across the cards */
     --c-act:#FF7A3C;   --c-act2:#FFB347;
@@ -41,6 +40,21 @@
     background:radial-gradient(56% 46% at var(--sun-x) var(--sun-y), var(--sun), transparent 62%);
     animation:sundrift 80s ease-in-out infinite alternate;}
   @keyframes sundrift{from{transform:translate3d(-1.5%,1%,0) scale(1.02)}to{transform:translate3d(2%,-1.5%,0) scale(1.06)}}
+  /* weather precipitation layer — sits above the sky, below the cards */
+  #wx{position:fixed;inset:-6% 0 0;z-index:-1;pointer-events:none;overflow:hidden;opacity:0;transition:opacity 1.4s ease}
+  body.wx-on #wx{opacity:1}
+  body.wx-rain #wx,body.wx-storm #wx{transform:rotate(9deg) scale(1.25)}
+  #wx i{position:absolute;top:-14%;display:block;will-change:transform}
+  body.wx-rain #wx i,body.wx-storm #wx i{width:1.5px;height:13%;border-radius:1px;background:linear-gradient(transparent,rgba(205,220,240,.5));animation:wxfall linear infinite}
+  body.wx-snow #wx i{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.85);animation:wxsnow linear infinite}
+  @keyframes wxfall{to{transform:translateY(128vh)}}
+  @keyframes wxsnow{to{transform:translateY(122vh) translateX(20px)}}
+  @media (prefers-reduced-motion:reduce){#wx i{animation:none!important;opacity:0!important}}
+  .wxchip{display:inline-flex;align-items:center;gap:7px;margin-top:8px;font-size:13px;color:var(--text-dim);letter-spacing:.02em}
+  .wxchip[hidden]{display:none}
+  .wxchip svg{width:17px;height:17px}
+  .wxchip b{font-weight:500;color:var(--text)}
+  .wxchip span{color:var(--text-faint)}
   @media (prefers-reduced-motion:reduce){#sky::after{animation:none}}
 
   .num{font-weight:500;line-height:.95}
@@ -48,7 +62,7 @@
   .unit{color:var(--text-faint);font-weight:400}
   .tag{font-size:11px;color:var(--text-faint);font-weight:400;letter-spacing:.04em}
 
-  header{display:flex;justify-content:space-between;align-items:baseline;gap:16px;margin:2px 4px 18px;text-shadow:var(--card-halo)}
+  header{display:flex;justify-content:space-between;align-items:baseline;gap:16px;margin:2px 4px 18px}
   .date{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);font-weight:400}
   .status{font-size:clamp(17px,2.2vw,24px);font-weight:500;margin-top:2px}
   .status b{color:var(--accent-2);font-weight:500}
@@ -60,10 +74,10 @@
   .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:var(--gap)}
   .card{
     background:var(--glass);
-    background:linear-gradient(160deg, rgba(8,9,12,.30), rgba(8,9,12,.04) 55%), linear-gradient(165deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
-    backdrop-filter:blur(28px) saturate(145%) brightness(.98); -webkit-backdrop-filter:blur(28px) saturate(145%) brightness(.98);
+    background:linear-gradient(160deg, rgba(10,12,18,.46), rgba(10,12,18,.30) 100%), linear-gradient(160deg, color-mix(in srgb, var(--ca,#8aa) 12%, transparent), transparent 65%), linear-gradient(165deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+    backdrop-filter:blur(28px) saturate(140%) brightness(.9); -webkit-backdrop-filter:blur(28px) saturate(140%) brightness(.9);
     border:1px solid var(--glass-line); border-radius:var(--r-card); padding:var(--pad); position:relative; overflow:hidden;
-    text-shadow:var(--card-halo);
+    text-shadow:0 1px 2px rgba(0,0,0,.45);
     box-shadow:inset 0 1.5px 0 rgba(255,255,255,.18), inset 0 0 0 1px rgba(255,255,255,.05), 0 24px 60px -30px rgba(0,0,0,.92);
   }
   .chead{display:flex;align-items:center;gap:11px;margin-bottom:14px}
@@ -255,11 +269,13 @@
 </head>
 <body>
   <div id="sky"></div>
+  <div id="wx" aria-hidden="true"></div>
 
   <header>
     <div>
       <div class="date" id="date">—</div>
       <div class="status" id="status">Let’s move.</div>
+      <div class="wxchip" id="wxchip" hidden></div>
     </div>
     <div class="hdr-right"><button id="settingsBtn" class="iconbtn" aria-label="Settings"></button><div class="wordmark">STRIDE</div></div>
   </header>
@@ -578,36 +594,85 @@ const SKY=[
   [21,  [22,26,68],[60,40,92],[110,70,110],    [150,80,120,.26],85],  // dusk — purple
   [24,  [10,16,38],[18,26,54],[28,36,68],      [120,140,200,.10],80]
 ];
-// muted text + halo react to how bright the sky behind the cards is, so gray text
-// stays legible on light skies (whiter ink + stronger dark halo) without darkening the glass
-function applyInk(s, horizon){
-  const L=Math.max(0,Math.min(1,(0.2126*horizon[0]+0.7152*horizon[1]+0.0722*horizon[2])/255));
-  const a=(lo,hi)=>(lo+(hi-lo)*L).toFixed(3);
-  s.setProperty('--text-faint',`rgba(255,255,255,${a(.62,.94)})`);
-  s.setProperty('--text-dim',`rgba(255,255,255,${a(.84,.99)})`);
-  const ha=a(.30,.85), hb=a(.18,.6), bl=(2+3*L).toFixed(1);
-  s.setProperty('--card-halo',`0 1px ${bl}px rgba(0,0,0,${ha}), 0 0 ${(bl*1.5).toFixed(1)}px rgba(0,0,0,${hb})`);
+// paint the sky from a set of gradient stops, modulated by current weather (WX)
+let WX=null;
+const WX_GRAY=[150,156,168];
+function paint(top, mid, hz, sun, sunY){
+  let sunA=sun[3];
+  if(WX){
+    const c=Math.max(0,Math.min(1,WX.cloud));
+    if(WX.cls==='clear'){ sunA*=1.18; }                       // sunny: brighter glow
+    if(c>0){                                                   // cloud: grey wash, heaviest at the top
+      const wash=(col,k)=>col.map((v,i)=>v+(WX_GRAY[i]-v)*Math.min(.6,c*k));
+      top=wash(top,.62); mid=wash(mid,.4); hz=wash(hz,.2); sunA*=(1-.72*c);
+    }
+    if(WX.cls==='rain'||WX.cls==='storm'){ const d=WX.cls==='storm'?.74:.86; top=top.map(v=>v*d); mid=mid.map(v=>v*d); hz=hz.map(v=>v*d); }
+  }
+  const s=document.documentElement.style;
+  const rgb=a=>`rgb(${a[0]|0},${a[1]|0},${a[2]|0})`;
+  s.setProperty('--sky-top',rgb(top)); s.setProperty('--sky-mid',rgb(mid)); s.setProperty('--sky-horizon',rgb(hz));
+  s.setProperty('--sun',`rgba(${sun[0]|0},${sun[1]|0},${sun[2]|0},${sunA.toFixed(3)})`); s.setProperty('--sun-y',sunY+'%');
+  const warm=(hz[0]-hz[2])>30; s.setProperty('--viz',warm?'#2dd4bf':'#FF6A2C'); s.setProperty('--viz2',warm?'#5eead4':'#FFA63D');
 }
 function setSky(){
-  if(bgPref!=='auto'){ const A=SKY[+bgPref]||SKY[4]; const s=document.documentElement.style;
-    s.setProperty('--sky-top',`rgb(${A[1]})`); s.setProperty('--sky-mid',`rgb(${A[2]})`); s.setProperty('--sky-horizon',`rgb(${A[3]})`);
-    s.setProperty('--sun',`rgba(${A[4]})`); s.setProperty('--sun-y',A[5]+'%');
-    const w=(A[3][0]-A[3][2])>30; s.setProperty('--viz',w?'#2dd4bf':'#FF6A2C'); s.setProperty('--viz2',w?'#5eead4':'#FFA63D');
-    applyInk(s,A[3]); return; }
+  if(bgPref!=='auto'){ const A=SKY[+bgPref]||SKY[4]; paint([...A[1]],[...A[2]],[...A[3]],[...A[4]],A[5]); return; }
   const dn=new Date(); const h=dn.getHours()+dn.getMinutes()/60;
   let A=SKY[0],B=SKY[SKY.length-1];
   for(let i=0;i<SKY.length-1;i++){ if(h>=SKY[i][0]&&h<=SKY[i+1][0]){ A=SKY[i];B=SKY[i+1];break; } }
   const t=(h-A[0])/((B[0]-A[0])||1), L=(a,b)=>a+(b-a)*t;
   const mix=i=>A[i].map((v,j)=>L(v,B[i][j]));
-  const rgb=a=>`rgb(${a[0]|0},${a[1]|0},${a[2]|0})`, rgba=a=>`rgba(${a[0]|0},${a[1]|0},${a[2]|0},${a[3].toFixed(3)})`;
-  const s=document.documentElement.style;
-  s.setProperty('--sky-top',rgb(mix(1))); s.setProperty('--sky-mid',rgb(mix(2))); s.setProperty('--sky-horizon',rgb(mix(3)));
-  s.setProperty('--sun',rgba(mix(4))); s.setProperty('--sun-y',L(A[5],B[5]).toFixed(1)+'%');
-  const hz=mix(3), warm=(hz[0]-hz[2])>30; s.setProperty('--viz',warm?'#2dd4bf':'#FF6A2C'); s.setProperty('--viz2',warm?'#5eead4':'#FFA63D');
-  applyInk(s,hz);
+  paint(mix(1),mix(2),mix(3),mix(4),+L(A[5],B[5]).toFixed(1));
 }
 setSky();
 setInterval(setSky, 60000);
+
+// ---- weather: Open-Meteo (free, no API key); modulates the sky + a hero chip ----
+const WX_ICON={clear:'sun',fewclouds:'cloudsun',cloudy:'cloud',fog:'fog',rain:'rain',snow:'snow',storm:'storm'};
+const WX_LABEL={clear:'Clear',fewclouds:'Partly cloudy',cloudy:'Overcast',fog:'Fog',rain:'Rain',snow:'Snow',storm:'Storms'};
+function wxClass(code,cloud){
+  if(code>=95) return 'storm';
+  if((code>=71&&code<=77)||(code>=85&&code<=86)) return 'snow';
+  if((code>=51&&code<=67)||(code>=80&&code<=82)) return 'rain';
+  if(code>=45&&code<=48) return 'fog';
+  if(code===3) return 'cloudy';
+  if(code===1||code===2) return cloud>0.6?'cloudy':'fewclouds';
+  return 'clear';
+}
+function wxParticles(cls){
+  const wx=$('wx'); if(!wx) return;
+  document.body.classList.remove('wx-rain','wx-snow','wx-storm','wx-on');
+  const isRain=cls==='rain'||cls==='storm', isSnow=cls==='snow';
+  if(!isRain&&!isSnow){ wx.innerHTML=''; return; }
+  const n=isSnow?60:90; let h='';
+  for(let i=0;i<n;i++){ const x=(i*36.7)%100; const dur=isSnow?(4+i%5):(0.55+(i%6)*0.09); const delay=-((i*0.13)%dur).toFixed(2);
+    h+=`<i style="left:${x.toFixed(2)}%;animation-duration:${dur}s;animation-delay:${delay}s"></i>`; }
+  wx.innerHTML=h; document.body.classList.add('wx-on', isSnow?'wx-snow':(cls==='storm'?'wx-storm':'wx-rain'));
+}
+function renderWx(){
+  const el=$('wxchip'); if(!el) return;
+  if(!WX){ el.hidden=true; return; }
+  el.hidden=false;
+  el.innerHTML=icon(WX_ICON[WX.cls]||'cloud')+`<b>${WX.temp}°</b><span>${WX_LABEL[WX.cls]||''}</span>`;
+}
+function wxGeo(cb){
+  let g=null; try{ g=JSON.parse(localStorage.getItem('strideGeo')||'null'); }catch(e){}
+  if(g&&g.lat!=null){ cb(g); return; }
+  if(navigator.geolocation){ navigator.geolocation.getCurrentPosition(
+    p=>{ const o={lat:+p.coords.latitude.toFixed(3),lon:+p.coords.longitude.toFixed(3)}; try{localStorage.setItem('strideGeo',JSON.stringify(o));}catch(e){} cb(o); },
+    ()=>cb({lat:51.5,lon:-0.12}), {timeout:8000,maximumAge:36e5}); }   // ponytail: fall back to London if denied/unavailable
+  else cb({lat:51.5,lon:-0.12});
+}
+function loadWeather(){
+  wxGeo(async g=>{ try{
+    const u=`https://api.open-meteo.com/v1/forecast?latitude=${g.lat}&longitude=${g.lon}&current=temperature_2m,weather_code,cloud_cover,precipitation,is_day&timezone=auto`;
+    const c=(await (await fetch(u)).json()).current; if(!c) return;
+    const cloud=(c.cloud_cover||0)/100;
+    WX={code:c.weather_code,temp:Math.round(c.temperature_2m),cloud,precip:c.precipitation||0,isDay:c.is_day,cls:wxClass(c.weather_code,cloud)};
+    setSky(); wxParticles(WX.cls); renderWx();
+  }catch(e){} });
+}
+loadWeather();
+setInterval(loadWeather, 15*60000);
 // always-on iPad background: keep the day/week correct without a manual refresh
 (function(){
   const n=new Date(); const msToMidnight=new Date(n.getFullYear(),n.getMonth(),n.getDate()+1,0,0,5)-n;
@@ -662,7 +727,14 @@ const ICONS={
   gauge:'<path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>',
   footprints:'<path d="M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.68V16a2 2 0 1 1-4 0Z"/><path d="M20 20v-2.38c0-2.12 1.03-3.12 1-5.62-.03-2.72-1.49-6-4.5-6C14.63 6 14 7.8 14 9.5c0 3.11 2 5.66 2 8.68V20a2 2 0 1 0 4 0Z"/><path d="M16 17h4"/><path d="M4 13h4"/>',
   clock:'<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
-  settings:'<path d="M10 5H3"/><path d="M12 19H3"/><path d="M14 3v4"/><path d="M16 17v4"/><path d="M21 12h-9"/><path d="M21 19h-5"/><path d="M21 5h-7"/><path d="M8 10v4"/><path d="M8 12H3"/>'
+  settings:'<path d="M10 5H3"/><path d="M12 19H3"/><path d="M14 3v4"/><path d="M16 17v4"/><path d="M21 12h-9"/><path d="M21 19h-5"/><path d="M21 5h-7"/><path d="M8 10v4"/><path d="M8 12H3"/>',
+  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
+  cloud:'<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>',
+  cloudsun:'<path d="M12 2v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="M20 12h2"/><path d="m19.07 4.93-1.41 1.41"/><path d="M15.947 12.65a4 4 0 0 0-5.925-4.128"/><path d="M13 22H7a5 5 0 1 1 4.9-6H13a3 3 0 0 1 0 6Z"/>',
+  fog:'<path d="M4 14a7 7 0 1 1 11.07-7.6"/><path d="M16 17H7"/><path d="M17 21H9"/><path d="M19 14h-7"/>',
+  rain:'<path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M16 14v6"/><path d="M8 14v6"/><path d="M12 16v6"/>',
+  snow:'<path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M8 15h.01"/><path d="M8 19h.01"/><path d="M12 17h.01"/><path d="M12 21h.01"/><path d="M16 15h.01"/><path d="M16 19h.01"/>',
+  storm:'<path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="m13 12-3 5h4l-3 5"/>'
 };
 const icon=(n,sz)=>`<svg viewBox="0 0 24 24" width="${sz||20}" height="${sz||20}" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${ICONS[n]||''}</svg>`;
 const ICON_OF={activity:'activity',sleep:'moon',gym:'dumbbell',hero:'gauge',walk:'footprints',clock:'clock'};
