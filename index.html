@@ -40,6 +40,8 @@
     background:radial-gradient(56% 46% at var(--sun-x) var(--sun-y), var(--sun), transparent 62%);
     animation:sundrift 80s ease-in-out infinite alternate;}
   @keyframes sundrift{from{transform:translate3d(-1.5%,1%,0) scale(1.02)}to{transform:translate3d(2%,-1.5%,0) scale(1.06)}}
+  @keyframes cardflow{to{background-position:220% 0}}
+  @media (prefers-reduced-motion:reduce){.card{animation:none!important}}
   /* weather precipitation layer — sits above the sky, below the cards */
   #wx{position:fixed;inset:-6% 0 0;z-index:-1;pointer-events:none;overflow:hidden;opacity:0;transition:opacity 1.4s ease}
   body.wx-on #wx{opacity:1}
@@ -74,10 +76,11 @@
   .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:var(--gap)}
   .card{
     background:var(--glass);
-    background:linear-gradient(160deg, color-mix(in srgb, var(--ca,#8aa) 16%, transparent), transparent 62%), linear-gradient(165deg, rgba(255,255,255,.14), rgba(255,255,255,.03) 42%, rgba(255,255,255,.06));
-    backdrop-filter:blur(26px) saturate(175%) brightness(var(--glass-dim,.55)) contrast(1.05); -webkit-backdrop-filter:blur(26px) saturate(175%) brightness(var(--glass-dim,.55)) contrast(1.05);
+    background:linear-gradient(115deg, color-mix(in srgb, var(--ca,#8aa) 30%, transparent), color-mix(in srgb, var(--cb,#557) 18%, transparent) 50%, color-mix(in srgb, var(--ca,#8aa) 30%, transparent)), linear-gradient(0deg, rgba(8,10,16,.20), rgba(8,10,16,.20));
+    background-size:220% 100%, 100% 100%; animation:cardflow 24s linear infinite;
+    backdrop-filter:blur(26px) saturate(155%); -webkit-backdrop-filter:blur(26px) saturate(155%);
     border:1px solid var(--glass-line); border-radius:var(--r-card); padding:var(--pad); position:relative; overflow:hidden;
-    box-shadow:inset 0 1.5px 0 rgba(255,255,255,.28), inset 0 0 0 1px rgba(255,255,255,.07), 0 24px 60px -30px rgba(0,0,0,.92);
+    box-shadow:inset 0 1.5px 0 rgba(255,255,255,.24), inset 0 0 0 1px rgba(255,255,255,.06), 0 24px 60px -30px rgba(0,0,0,.85);
   }
   .chead{display:flex;align-items:center;gap:11px;margin-bottom:14px}
   .chip{width:36px;height:36px;border-radius:var(--r-chip);display:grid;place-items:center;font-size:17px;border:1px solid var(--glass-line);
