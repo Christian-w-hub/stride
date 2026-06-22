@@ -82,13 +82,29 @@ as backup. Now it pushes fresh data many times a day, hands-off.
 
 ## Step 4 — gym (the one bit that needs a trigger)
 
-iPhone can't sense a gym session, so pick one:
-- **Auto (recommended):** Automation → **Wi-Fi → Connects to [your gym network]**, Run
-  Immediately → bump a stored count and PUT `DB_URL/stride/gymWeek.json?auth=KEY` =
-  `{week:"<this Monday>", count:N}`. (A VPN does **not** hide the Wi-Fi name, so this
-  works for you.) Add a **Monday 4am** automation to reset count to 0.
-- **One-tap fallback:** a "Log gym" home-screen shortcut you tap on arrival (the most
-  reliable signal of all, if you don't mind one tap).
+A web page can't watch your location in the background, and the dashboard iPad sits at
+home — so anything location-based has to run on your **iPhone** via Shortcuts (iOS does
+the geofencing natively) and reach the dashboard through the Firebase sync from Step 2.
+Pick whichever you like; they all just set `gymWeek = {week, count}`:
+
+- **Location, auto (set-and-forget, dwell-aware) — needs Firebase (Step 2):**
+  Two **Personal Automations** keyed to **PureGym Maidenhead** (pick the location + a
+  small radius in the trigger):
+  1. **When I Arrive → PureGym Maidenhead**, Run Immediately → save the current time
+     (Data Jar, or write to a file / a Note) as `gymArrived`.
+  2. **When I Leave → PureGym Maidenhead**, Run Immediately → read `gymArrived`; if
+     **now − gymArrived ≥ 20 min**, bump a stored weekly count and PUT
+     `DB_URL/stride/gymWeek.json?auth=KEY` = `{week:"<this Monday>", count:N}`. Under 20
+     min, do nothing (filters a quick pop-in). The dashboard picks it up on its next sync.
+  Add a **Monday 4am** automation to reset the count to 0. (You can add `home` the same
+  way later if you want home/away logic.)
+- **Wi-Fi, auto:** Automation → **Wi-Fi → Connects to [the gym network]**, Run
+  Immediately → same PUT. (A VPN does **not** hide the Wi-Fi name.) Simpler than location,
+  but fires the moment you connect, not after 20 min.
+- **One-tap fallback:** a "Log gym" home-screen shortcut you tap on arrival.
+- **Built-in fail-safe (no setup):** open the dashboard, tap the **Gym** card →
+  **"Log a session today"**. Counts it for the week right there (tap again to undo). Use
+  this whenever an automation misses one. Lives on the dashboard device only.
 
 ---
 
