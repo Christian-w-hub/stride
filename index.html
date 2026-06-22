@@ -424,6 +424,7 @@ let store={};
 try{ const raw=JSON.parse(localStorage.getItem('stride')||'{}'); store=(raw&&typeof raw==='object'&&!Array.isArray(raw))?raw:{}; }catch(e){ store={}; }
 if(!store.days || typeof store.days!=='object' || Array.isArray(store.days)) store.days={};
 store.gymWeeks = (store.gymWeeks && typeof store.gymWeeks==='object') ? store.gymWeeks : {};
+store.gymManual = (store.gymManual && typeof store.gymManual==='object') ? store.gymManual : {};  // {dateKey:true} manual gym logs (fail-safe)
 const now = new Date(); const key = todayKey(now);
 
 if (p.toString().length>0){
@@ -938,11 +939,24 @@ function schedule(){ return trainingDays()>=5?SCHED5:SCHED4; }
 function schedShift(){ try{ return ((+localStorage.getItem('strideShift')||0)%7+7)%7; }catch(e){ return 0; } }
 function setSchedShift(n){ try{ localStorage.setItem('strideShift', String(((n%7)+7)%7)); }catch(e){} }
 function schedIdx(date){ return ((((date||new Date()).getDay()+6)%7) - schedShift() + 700) % 7; }
-function renderSession(key,low){ const base=session(key); if(!base) return '';
+// manual gym log (fail-safe for when the location/Wi-Fi automation doesn't fire); idempotent per day, undoable
+function logGymToday(){ try{
+  const wk=weekId(now), dk=todayKey(now);
+  if(!store.gymWeek || store.gymWeek.week!==wk){ if(store.gymWeek) store.gymWeeks[store.gymWeek.week]=store.gymWeek.count; store.gymWeek={week:wk,count:0}; }
+  if(store.gymManual[dk]){ delete store.gymManual[dk]; store.gymWeek.count=Math.max(0,(store.gymWeek.count||0)-1); }
+  else { store.gymManual[dk]=true; store.gymWeek.count=(store.gymWeek.count||0)+1; }
+  localStorage.setItem('stride', JSON.stringify(store));
+  sessionStorage.setItem('strideSilent','1'); location.reload();   // recompute everything from one source of truth
+}catch(e){} }
+function renderSession(key,easy,deload,sleepLow){ const base=session(key); if(!base) return '';
   const s=base.concat([Object.assign(X(wpick(key[0]==='U'?NOVEL_U:NOVEL_L,'nv'+key),2,'8–15','1','75s'),{nw:1})]); // session-appropriate dash of novelty (last = first to cut)
-  const cut = low ? Math.min(2, Math.max(0,s.length-3)) : 0; const from=s.length-cut;
-  const rows=s.map((x,i)=>{ const tr=i>=from; return `<tr class="${tr?'trim':''}"><td>${x.name}${x.nw?' <span class="newtag">new</span>':''}${tr?' <span class="trimtag">ease today</span>':''}</td><td class="pn">${x.sets}×${x.reps}</td><td class="pn">${x.rir} RIR</td><td class="pn">${x.rest}</td></tr>`; }).join('');
-  const banner = low ? `<div class="lowbanner">Under 7h sleep — I'd go max bang-for-buck. Full session below; the dimmed moves are safe to cut today.</div>` : '';
+  const cut = easy ? Math.min(2, Math.max(0,s.length-3)) : 0; const from=s.length-cut;
+  const rows=s.map((x,i)=>{ const tr=i>=from; const sets=deload?Math.max(1,Math.round(x.sets/2)):x.sets; const rir=deload?'3–4':x.rir;
+    return `<tr class="${tr?'trim':''}"><td>${x.name}${x.nw?' <span class="newtag">new</span>':''}${tr?' <span class="trimtag">ease today</span>':''}</td><td class="pn">${sets}×${x.reps}</td><td class="pn">${rir} RIR</td><td class="pn">${x.rest}</td></tr>`; }).join('');
+  let banner='';
+  if(deload) banner=`<div class="lowbanner">Deload week — sets halved, leave 3–4 in the tank. Strength holds on light volume; this is recovery, not lost ground.</div>`;
+  else if(sleepLow) banner=`<div class="lowbanner">Under 7h sleep — I'd go max bang-for-buck. Full session below; the dimmed moves are safe to cut today.</div>`;
+  else if(easy) banner=`<div class="lowbanner">Easy day — full session below; the dimmed moves are safe to cut today.</div>`;
   return banner+'<table class="plan">'+rows+'</table>'; }
 function weekStrip(){ const sc=schedule(); const sh=schedShift(); const ds=['M','T','W','T','F','S','S']; const cur=(new Date().getDay()+6)%7;
   return '<div class="weekplan">'+ds.map((d,i)=>{ const k=sc[((i-sh)%7+7)%7]; return `<div class="wp${i===cur?' now':''}"><div class="wpd">${d}</div><div class="wpk ${k==='cardio'?'k-cardio':k==='rest'?'k-rest':'k-sess'}">${k==='cardio'?'CRD':k==='rest'?'·':k}</div></div>`; }).join('')+'</div>'; }
@@ -991,11 +1005,23 @@ const RENDER={
       +`<div class="ovstats">${stat(fmtHrs(avg),'avg/night')}${stat(fmtHrs(best),'best '+(range==='12wk'?'week':'month'))}</div>`
       +`<div class="note" style="margin-top:14px">Estimated · charging + do not disturb</div>`; },
   gym(){ const sh=schedShift(); const key=schedule()[schedIdx()];
+    const dk=todayKey(new Date());
+    const sleepLow = sleep>0 && sleep<7;
+    const lsget=(k)=>{try{return localStorage.getItem(k)}catch(e){return null}};
+    const forcedEasy = lsget('strideEasy')===dk;
+    const deload = lsget('strideDeload')===weekId(new Date());
+    const easy = sleepLow || forcedEasy;
+    const loggedToday = !!store.gymManual[dk];
     let h=`<div class="ovrow"><span>Today — <b>${SESS_TITLE[key]}</b></span><span style="color:var(--text-faint);font-size:12px">${trainingDays()}-day Upper/Lower</span></div>`;
     if(key==='cardio') h+='<div class="insight">20–25 min easy cycling or incline walk. Keep it off leg days.</div>';
     else if(key==='rest') h+='<div class="insight">Rest day. Recovery is part of the plan — that’s when you grow.</div>';
-    else h+=renderSession(key, sleep>0 && sleep<7);
+    else h+=renderSession(key, easy, deload, sleepLow);
     h+=`<div class="strow" style="margin-top:14px"><button class="ovtab" id="sched-push">Out today? Push the plan back a day</button>${sh?`<button class="ovtab on" id="sched-reset">Realign · shifted ${sh}d</button>`:''}</div>`;
+    h+=`<div class="strow" style="margin-top:8px">`
+      +`<button class="ovtab${loggedToday?' on':''}" id="gym-log">${loggedToday?'✓ Session logged today':'Log a session today'}</button>`
+      +(key!=='rest'&&key!=='cardio'?`<button class="ovtab${forcedEasy?' on':''}" id="easy-toggle">${forcedEasy?'✓ Easy day':'Make today easy'}</button>`:'')
+      +`<button class="ovtab${deload?' on':''}" id="deload-toggle">${deload?'✓ Deload week':'Deload this week'}</button>`
+      +`</div>`;
     h+='<div class="ovrow" style="margin-top:18px"><span>This week</span></div>'+weekStrip()+stretchBlock();
     const wkk=weekId(new Date()); const cur=(store.gymWeek&&store.gymWeek.week===wkk)?store.gymWeek.count:0;
     const hist=Object.entries(store.gymWeeks||{}).sort((a,b)=>a[0]<b[0]?-1:1).slice(-11);
@@ -1030,7 +1056,11 @@ function ovRender(id,range){ const body=$('ovBody'); const opts=RANGES[id];
   if(id==='gym'){ const dn=body.querySelector('#st-done'); if(dn) dn.onclick=()=>{ stretchData.dates[todayKey(new Date())]=true; saveStretch(); ovRender('gym'); };
     const nx=body.querySelector('#st-next'); if(nx) nx.onclick=()=>{ stretchData.vid=((stretchData.vid||0)+1)%STRETCH_VIDS.length; saveStretch(); ovRender('gym'); };
     const ps=body.querySelector('#sched-push'); if(ps) ps.onclick=()=>{ setSchedShift(schedShift()+1); refreshGymCard(); ovRender('gym'); };
-    const rs=body.querySelector('#sched-reset'); if(rs) rs.onclick=()=>{ setSchedShift(0); refreshGymCard(); ovRender('gym'); }; }
+    const rs=body.querySelector('#sched-reset'); if(rs) rs.onclick=()=>{ setSchedShift(0); refreshGymCard(); ovRender('gym'); };
+    const lg=body.querySelector('#gym-log'); if(lg) lg.onclick=()=>logGymToday();   // logs + silent reload
+    const lsset=(k,v)=>{ try{ if(localStorage.getItem(k)===v) localStorage.removeItem(k); else localStorage.setItem(k,v); }catch(e){} };
+    const eg=body.querySelector('#easy-toggle'); if(eg) eg.onclick=()=>{ lsset('strideEasy', todayKey(new Date())); ovRender('gym'); };
+    const dg=body.querySelector('#deload-toggle'); if(dg) dg.onclick=()=>{ lsset('strideDeload', weekId(new Date())); ovRender('gym'); }; }
 }
 function openOverlay(id){ const ov=$('overlay'), sheet=ov.querySelector('.sheet');
   const cs=getComputedStyle(document.querySelector('.'+id));
