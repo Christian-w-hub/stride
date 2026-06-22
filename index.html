@@ -934,14 +934,18 @@ const SESS_TITLE={UA:'Upper A',LA:'Lower A',UB:'Upper B',LB:'Lower B',UC:'Upper 
 const SCHED4=['UA','LA','cardio','UB','LB','cardio','rest'];
 const SCHED5=['UA','LA','UB','rest','LB','UC','cardio'];
 function schedule(){ return trainingDays()>=5?SCHED5:SCHED4; }
+// schedule can be rotated forward: missing a day pushes the whole plan back so the U/L/cardio/rest balance is kept
+function schedShift(){ try{ return ((+localStorage.getItem('strideShift')||0)%7+7)%7; }catch(e){ return 0; } }
+function setSchedShift(n){ try{ localStorage.setItem('strideShift', String(((n%7)+7)%7)); }catch(e){} }
+function schedIdx(date){ return ((((date||new Date()).getDay()+6)%7) - schedShift() + 700) % 7; }
 function renderSession(key,low){ const base=session(key); if(!base) return '';
   const s=base.concat([Object.assign(X(wpick(key[0]==='U'?NOVEL_U:NOVEL_L,'nv'+key),2,'8–15','1','75s'),{nw:1})]); // session-appropriate dash of novelty (last = first to cut)
   const cut = low ? Math.min(2, Math.max(0,s.length-3)) : 0; const from=s.length-cut;
   const rows=s.map((x,i)=>{ const tr=i>=from; return `<tr class="${tr?'trim':''}"><td>${x.name}${x.nw?' <span class="newtag">new</span>':''}${tr?' <span class="trimtag">ease today</span>':''}</td><td class="pn">${x.sets}×${x.reps}</td><td class="pn">${x.rir} RIR</td><td class="pn">${x.rest}</td></tr>`; }).join('');
   const banner = low ? `<div class="lowbanner">Under 7h sleep — I'd go max bang-for-buck. Full session below; the dimmed moves are safe to cut today.</div>` : '';
   return banner+'<table class="plan">'+rows+'</table>'; }
-function weekStrip(){ const sc=schedule(); const ds=['M','T','W','T','F','S','S']; const cur=(new Date().getDay()+6)%7;
-  return '<div class="weekplan">'+sc.map((k,i)=>`<div class="wp${i===cur?' now':''}"><div class="wpd">${ds[i]}</div><div class="wpk ${k==='cardio'?'k-cardio':k==='rest'?'k-rest':'k-sess'}">${k==='cardio'?'CRD':k==='rest'?'·':k}</div></div>`).join('')+'</div>'; }
+function weekStrip(){ const sc=schedule(); const sh=schedShift(); const ds=['M','T','W','T','F','S','S']; const cur=(new Date().getDay()+6)%7;
+  return '<div class="weekplan">'+ds.map((d,i)=>{ const k=sc[((i-sh)%7+7)%7]; return `<div class="wp${i===cur?' now':''}"><div class="wpd">${d}</div><div class="wpk ${k==='cardio'?'k-cardio':k==='rest'?'k-rest':'k-sess'}">${k==='cardio'?'CRD':k==='rest'?'·':k}</div></div>`; }).join('')+'</div>'; }
 
 // ===== evening stretch (stiff-beginner; see docs/stretching-plan.md) =====
 let stretchData={}; try{ stretchData=JSON.parse(localStorage.getItem('strideStretch')||'{}'); }catch(e){} stretchData.dates=stretchData.dates||{};
@@ -986,11 +990,12 @@ const RENDER={
     return ovbars(A.map(x=>({v:x.sleepAvg,lbl:x.lbl})))
       +`<div class="ovstats">${stat(fmtHrs(avg),'avg/night')}${stat(fmtHrs(best),'best '+(range==='12wk'?'week':'month'))}</div>`
       +`<div class="note" style="margin-top:14px">Estimated · charging + do not disturb</div>`; },
-  gym(){ const day0=(new Date().getDay()+6)%7; const key=schedule()[day0];
+  gym(){ const sh=schedShift(); const key=schedule()[schedIdx()];
     let h=`<div class="ovrow"><span>Today — <b>${SESS_TITLE[key]}</b></span><span style="color:var(--text-faint);font-size:12px">${trainingDays()}-day Upper/Lower</span></div>`;
     if(key==='cardio') h+='<div class="insight">20–25 min easy cycling or incline walk. Keep it off leg days.</div>';
     else if(key==='rest') h+='<div class="insight">Rest day. Recovery is part of the plan — that’s when you grow.</div>';
     else h+=renderSession(key, sleep>0 && sleep<7);
+    h+=`<div class="strow" style="margin-top:14px"><button class="ovtab" id="sched-push">Out today? Push the plan back a day</button>${sh?`<button class="ovtab on" id="sched-reset">Realign · shifted ${sh}d</button>`:''}</div>`;
     h+='<div class="ovrow" style="margin-top:18px"><span>This week</span></div>'+weekStrip()+stretchBlock();
     const wkk=weekId(new Date()); const cur=(store.gymWeek&&store.gymWeek.week===wkk)?store.gymWeek.count:0;
     const hist=Object.entries(store.gymWeeks||{}).sort((a,b)=>a[0]<b[0]?-1:1).slice(-11);
@@ -1023,7 +1028,9 @@ function ovRender(id,range){ const body=$('ovBody'); const opts=RANGES[id];
   body.innerHTML=bar+RENDER[id](range);
   if(opts) body.querySelectorAll('.ovtab').forEach(b=>b.addEventListener('click',()=>ovRender(id,b.dataset.r)));
   if(id==='gym'){ const dn=body.querySelector('#st-done'); if(dn) dn.onclick=()=>{ stretchData.dates[todayKey(new Date())]=true; saveStretch(); ovRender('gym'); };
-    const nx=body.querySelector('#st-next'); if(nx) nx.onclick=()=>{ stretchData.vid=((stretchData.vid||0)+1)%STRETCH_VIDS.length; saveStretch(); ovRender('gym'); }; }
+    const nx=body.querySelector('#st-next'); if(nx) nx.onclick=()=>{ stretchData.vid=((stretchData.vid||0)+1)%STRETCH_VIDS.length; saveStretch(); ovRender('gym'); };
+    const ps=body.querySelector('#sched-push'); if(ps) ps.onclick=()=>{ setSchedShift(schedShift()+1); refreshGymCard(); ovRender('gym'); };
+    const rs=body.querySelector('#sched-reset'); if(rs) rs.onclick=()=>{ setSchedShift(0); refreshGymCard(); ovRender('gym'); }; }
 }
 function openOverlay(id){ const ov=$('overlay'), sheet=ov.querySelector('.sheet');
   const cs=getComputedStyle(document.querySelector('.'+id));
@@ -1074,9 +1081,10 @@ document.querySelectorAll('.card').forEach(c=>{
   c.insertAdjacentHTML('afterbegin','<div class="glassfx gf-filter"></div><div class="glassfx gf-overlay"></div><div class="glassfx gf-specular"></div>');
 });
 loadWeather(); setInterval(loadWeather, 15*60000);   // start weather now that icon()/ICONS exist
-// surface today's workout on the gym card (deferred so training defs exist)
-(function(){ try{ const k=schedule()[(new Date().getDay()+6)%7]; const togo=gym>=GOAL.gym?'week complete':(GOAL.gym-gym)+' to go this week';
-  $('gymFoot').innerHTML=`Today · <b>${SESS_TITLE[k]}</b><br><span style="color:var(--text-faint);font-size:12px">${togo}</span>`; }catch(e){} })();
+// surface today's workout on the gym card (deferred so training defs exist; reusable so the schedule-shift updates it live)
+function refreshGymCard(){ try{ const k=schedule()[schedIdx()]; const togo=gym>=GOAL.gym?'week complete':(GOAL.gym-gym)+' to go this week';
+  $('gymFoot').innerHTML=`Today · <b>${SESS_TITLE[k]}</b><br><span style="color:var(--text-faint);font-size:12px">${togo}</span>`; }catch(e){} }
+refreshGymCard();
 
 // surprise: confetti when a new trophy is earned or you rank up (once, per device)
 (function(){ if(silent) return; const h=historyStats(); const got=TROPHIES.filter(t=>t.test(h)).length; const rank=rankOf(got);
