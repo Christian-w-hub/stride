@@ -34,8 +34,10 @@
     padding:max(22px,env(safe-area-inset-top)) clamp(16px,3vw,34px) 30px;
   }
   /* living sky — time-of-day gradient + a slow-drifting sun glow */
-  #sky{position:fixed;inset:0;z-index:-2;pointer-events:none;transition:background 4s linear;
-    background:linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 46%, var(--sky-horizon) 100%);}
+  #sky{position:fixed;inset:0;z-index:-2;pointer-events:none;transition:background 4s linear;will-change:transform;
+    background:linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 46%, var(--sky-horizon) 100%);
+    animation:skyflow 70s ease-in-out infinite alternate;}
+  @keyframes skyflow{0%{transform:scale(1.14) translate3d(-2.4%,-1.8%,0)}50%{transform:scale(1.18) translate3d(1.6%,1%,0)}100%{transform:scale(1.14) translate3d(2.4%,1.8%,0)}}
   #sky::after{content:"";position:absolute;inset:0;transition:background 4s linear;
     background:radial-gradient(56% 46% at var(--sun-x) var(--sun-y), var(--sun), transparent 62%);
     animation:sundrift 80s ease-in-out infinite alternate;}
@@ -84,8 +86,8 @@
   .card>:not(.glassfx){position:relative;z-index:3}
   .chead{display:flex;align-items:center;gap:11px;margin-bottom:14px}
   .chip{width:36px;height:36px;border-radius:var(--r-chip);display:grid;place-items:center;font-size:17px;border:1px solid var(--glass-line);
-    background:rgba(255,255,255,.06); color:var(--ca,#fff);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}
+    background:rgba(255,255,255,.14); color:var(--ca,#fff);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.22)}
   .ctitle{font-size:15px;font-weight:500}
   .chead .tag{margin-left:auto}
 
@@ -172,7 +174,7 @@
   @keyframes rise{to{opacity:1;transform:none;filter:blur(0)}}
   .silent .card{animation:none!important;opacity:1!important;transform:none!important;filter:none!important}
   @media (prefers-reduced-motion:reduce){
-    .card{animation:none;opacity:1;transform:none;filter:none}#sky{transition:none}*{transition:none!important}
+    .card{animation:none;opacity:1;transform:none;filter:none}#sky{transition:none;animation:none}*{transition:none!important}
     ::view-transition-old(*),::view-transition-new(*){animation:none!important}
   }
 
@@ -275,7 +277,9 @@
   <svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="glass-distortion" x="0" y="0" width="100%" height="100%" filterUnits="objectBoundingBox">
     <feTurbulence type="fractalNoise" baseFrequency="0.01 0.012" numOctaves="2" seed="4" result="noise"/>
     <feGaussianBlur in="noise" stdDeviation="2" result="blurred"/>
-    <feDisplacementMap in="SourceGraphic" in2="blurred" scale="110" xChannelSelector="R" yChannelSelector="G"/>
+    <feDisplacementMap in="SourceGraphic" in2="blurred" scale="110" xChannelSelector="R" yChannelSelector="G">
+      <animate attributeName="scale" values="98;128;98" dur="13s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.5;1" keySplines="0.45 0 0.55 1;0.45 0 0.55 1"/>
+    </feDisplacementMap>
   </filter></svg>
 
   <header>
@@ -1034,12 +1038,9 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeOverlay(); }
 (function(){ const ics=document.querySelectorAll('.hero .ic'); const names=['activity','footprints','dumbbell','moon','gauge'];
   ics.forEach((el,i)=>{ if(names[i]) el.innerHTML=icon(names[i],15); }); })();
 $('settingsBtn').innerHTML=icon('settings'); $('settingsBtn').addEventListener('click', openSettings);
-// liquid-glass: layer a refracting backdrop + colour overlay + specular into each card; specular follows the pointer
+// liquid-glass: layer a refracting backdrop + colour overlay + specular into each card
 document.querySelectorAll('.card').forEach(c=>{
   c.insertAdjacentHTML('afterbegin','<div class="glassfx gf-filter"></div><div class="glassfx gf-overlay"></div><div class="glassfx gf-specular"></div>');
-  const sp=c.querySelector('.gf-specular');
-  c.addEventListener('pointermove',e=>{ const r=c.getBoundingClientRect(); sp.style.background=`radial-gradient(circle at ${e.clientX-r.left}px ${e.clientY-r.top}px, rgba(255,255,255,.16), rgba(255,255,255,.03) 42%, transparent 66%)`; });
-  c.addEventListener('pointerleave',()=>{ sp.style.background=''; });
 });
 loadWeather(); setInterval(loadWeather, 15*60000);   // start weather now that icon()/ICONS exist
 // surface today's workout on the gym card (deferred so training defs exist)
