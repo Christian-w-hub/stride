@@ -74,11 +74,10 @@
   .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:var(--gap)}
   .card{
     background:var(--glass);
-    background:linear-gradient(160deg, rgba(10,12,18,.46), rgba(10,12,18,.30) 100%), linear-gradient(160deg, color-mix(in srgb, var(--ca,#8aa) 12%, transparent), transparent 65%), linear-gradient(165deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
-    backdrop-filter:blur(28px) saturate(140%) brightness(.9); -webkit-backdrop-filter:blur(28px) saturate(140%) brightness(.9);
+    background:linear-gradient(160deg, color-mix(in srgb, var(--ca,#8aa) 16%, transparent), transparent 62%), linear-gradient(165deg, rgba(255,255,255,.14), rgba(255,255,255,.03) 42%, rgba(255,255,255,.06));
+    backdrop-filter:blur(26px) saturate(175%) brightness(var(--glass-dim,.55)) contrast(1.05); -webkit-backdrop-filter:blur(26px) saturate(175%) brightness(var(--glass-dim,.55)) contrast(1.05);
     border:1px solid var(--glass-line); border-radius:var(--r-card); padding:var(--pad); position:relative; overflow:hidden;
-    text-shadow:0 1px 2px rgba(0,0,0,.45);
-    box-shadow:inset 0 1.5px 0 rgba(255,255,255,.18), inset 0 0 0 1px rgba(255,255,255,.05), 0 24px 60px -30px rgba(0,0,0,.92);
+    box-shadow:inset 0 1.5px 0 rgba(255,255,255,.28), inset 0 0 0 1px rgba(255,255,255,.07), 0 24px 60px -30px rgba(0,0,0,.92);
   }
   .chead{display:flex;align-items:center;gap:11px;margin-bottom:14px}
   .chip{width:36px;height:36px;border-radius:var(--r-chip);display:grid;place-items:center;font-size:17px;border:1px solid var(--glass-line);
@@ -390,6 +389,7 @@ if(silent) document.documentElement.classList.add('silent');
 const FIREBASE_URL = '';
 const voice = (()=>{ try{ return localStorage.getItem('strideVoice')||'full'; }catch(e){ return 'full'; } })(); // full | subtle | off
 const bgPref = (()=>{ try{ return localStorage.getItem('strideBg')||'auto'; }catch(e){ return 'auto'; } })(); // 'auto' | SKY index
+const wxPref = (()=>{ try{ return localStorage.getItem('strideWx')||'auto'; }catch(e){ return 'auto'; } })(); // 'auto' | forced weather class (preview)
 function countUp(el,to,fmt){ fmt=fmt||(v=>Math.round(v));
   if(reduce||silent||!to){ el.textContent=fmt(to); return; }
   const start=performance.now(),dur=900;
@@ -613,6 +613,11 @@ function paint(top, mid, hz, sun, sunY){
   s.setProperty('--sky-top',rgb(top)); s.setProperty('--sky-mid',rgb(mid)); s.setProperty('--sky-horizon',rgb(hz));
   s.setProperty('--sun',`rgba(${sun[0]|0},${sun[1]|0},${sun[2]|0},${sunA.toFixed(3)})`); s.setProperty('--sun-y',sunY+'%');
   const warm=(hz[0]-hz[2])>30; s.setProperty('--viz',warm?'#2dd4bf':'#FF6A2C'); s.setProperty('--viz2',warm?'#5eead4':'#FFA63D');
+  // adaptive glass dim: darken the reflected sky more when it's bright, so light text
+  // stays legible on real translucent glass (no flat veil, no text shadows). Dark skies stay bright.
+  const lum=c=>(0.2126*c[0]+0.7152*c[1]+0.0722*c[2])/255;
+  const Lr=0.42*lum(mid)+0.58*lum(hz);          // cards span mid->horizon; weight the brighter horizon
+  s.setProperty('--glass-dim', Math.max(.28, Math.min(1, 0.19/Math.max(.04,Lr))).toFixed(3));
 }
 function setSky(){
   if(bgPref!=='auto'){ const A=SKY[+bgPref]||SKY[4]; paint([...A[1]],[...A[2]],[...A[3]],[...A[4]],A[5]); return; }
@@ -662,7 +667,10 @@ function wxGeo(cb){
     ()=>cb({lat:51.5,lon:-0.12}), {timeout:8000,maximumAge:36e5}); }   // ponytail: fall back to London if denied/unavailable
   else cb({lat:51.5,lon:-0.12});
 }
+// forced-weather presets for the settings preview (temp picked to feel seasonally right)
+const WX_FORCE={clear:{code:0,cloud:.05,temp:24},fewclouds:{code:2,cloud:.4,temp:19},cloudy:{code:3,cloud:.95,temp:14},fog:{code:45,cloud:.9,temp:9},rain:{code:63,cloud:.9,temp:12},storm:{code:95,cloud:.95,temp:17},snow:{code:73,cloud:.85,temp:-1}};
 function loadWeather(){
+  if(wxPref!=='auto' && WX_FORCE[wxPref]){ const f=WX_FORCE[wxPref]; WX={code:f.code,temp:f.temp,cloud:f.cloud,precip:0,isDay:1,cls:wxPref}; setSky(); wxParticles(WX.cls); renderWx(); return; }
   wxGeo(async g=>{ try{
     const u=`https://api.open-meteo.com/v1/forecast?latitude=${g.lat}&longitude=${g.lon}&current=temperature_2m,weather_code,cloud_cover,precipitation,is_day&timezone=auto`;
     const c=(await (await fetch(u)).json()).current; if(!c) return;
@@ -671,8 +679,7 @@ function loadWeather(){
     setSky(); wxParticles(WX.cls); renderWx();
   }catch(e){} });
 }
-loadWeather();
-setInterval(loadWeather, 15*60000);
+// loadWeather() is kicked off at the end of the script, after icon()/ICONS are defined
 // always-on iPad background: keep the day/week correct without a manual refresh
 (function(){
   const n=new Date(); const msToMidnight=new Date(n.getFullYear(),n.getMonth(),n.getDate()+1,0,0,5)-n;
@@ -995,10 +1002,14 @@ function openSettings(){ const ov=$('overlay'), sheet=ov.querySelector('.sheet')
     +`<div class="ovrow" style="margin-top:18px"><span>Background</span><span style="color:var(--text-faint);font-size:12px">tap to pin, or Auto</span></div>`
     +'<div class="bggrid">'+`<button class="bgsw${bgPref==='auto'?' on':''}" data-bg="auto"><span class="bgauto">Auto</span><span class="bgl">Time of day</span></button>`
       +['Night','Dawn','Sunrise','Morning','Midday','Afternoon','Golden','Sunset','Dusk'].map((n,i)=>{const A=SKY[i];return `<button class="bgsw${bgPref===String(i)?' on':''}" data-bg="${i}"><span class="bgprev" style="background:linear-gradient(180deg,rgb(${A[1]}),rgb(${A[2]}) 46%,rgb(${A[3]}))"></span><span class="bgl">${n}</span></button>`;}).join('')+'</div>'
+    +`<div class="ovrow" style="margin-top:18px"><span>Weather <span style="color:var(--text-faint);font-size:12px">— preview</span></span><span style="color:var(--text-faint);font-size:12px">overrides live weather</span></div>`
+    +'<div class="bggrid">'+`<button class="bgsw${wxPref==='auto'?' on':''}" data-wx="auto"><span class="bgauto">Auto</span><span class="bgl">Live</span></button>`
+      +[['clear','Clear'],['fewclouds','Partly'],['cloudy','Overcast'],['fog','Fog'],['rain','Rain'],['storm','Storm'],['snow','Snow']].map(([k,n])=>`<button class="bgsw${wxPref===k?' on':''}" data-wx="${k}"><span class="bgprev" style="display:grid;place-items:center">${icon(WX_ICON[k],22)}</span><span class="bgl">${n}</span></button>`).join('')+'</div>'
     +`<button class="savebtn" id="s-save">Save targets</button>`
     +`<div class="note" style="margin-top:12px;text-transform:none;letter-spacing:0">Saved on this device. Change these any time as your goals evolve.</div>`;
   $('s-voice').value=voice; $('s-days').value=trainingDays();
-  $('ovBody').querySelectorAll('.bgsw').forEach(b=>b.onclick=()=>{ try{ localStorage.setItem('strideBg', b.dataset.bg); }catch(e){} location.reload(); });
+  $('ovBody').querySelectorAll('.bgsw[data-bg]').forEach(b=>b.onclick=()=>{ try{ localStorage.setItem('strideBg', b.dataset.bg); }catch(e){} location.reload(); });
+  $('ovBody').querySelectorAll('.bgsw[data-wx]').forEach(b=>b.onclick=()=>{ try{ localStorage.setItem('strideWx', b.dataset.wx); }catch(e){} location.reload(); });
   $('s-save').addEventListener('click', ()=>{ const ng={gym:+$('s-gym').value||5, steps:+$('s-steps').value||8000, sleep:+$('s-sleep').value||7.5, walkSteps:+$('s-walk').value||7000};
     try{ localStorage.setItem('strideGoals', JSON.stringify(ng)); localStorage.setItem('strideVoice', $('s-voice').value); localStorage.setItem('strideDays', $('s-days').value); }catch(e){} location.reload(); });
   ov.hidden=false; }
@@ -1015,6 +1026,7 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeOverlay(); }
 (function(){ const ics=document.querySelectorAll('.hero .ic'); const names=['activity','footprints','dumbbell','moon','gauge'];
   ics.forEach((el,i)=>{ if(names[i]) el.innerHTML=icon(names[i],15); }); })();
 $('settingsBtn').innerHTML=icon('settings'); $('settingsBtn').addEventListener('click', openSettings);
+loadWeather(); setInterval(loadWeather, 15*60000);   // start weather now that icon()/ICONS exist
 // surface today's workout on the gym card (deferred so training defs exist)
 (function(){ try{ const k=schedule()[(new Date().getDay()+6)%7]; const togo=gym>=GOAL.gym?'week complete':(GOAL.gym-gym)+' to go this week';
   $('gymFoot').innerHTML=`Today · <b>${SESS_TITLE[k]}</b><br><span style="color:var(--text-faint);font-size:12px">${togo}</span>`; }catch(e){} })();
