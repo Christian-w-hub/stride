@@ -14,6 +14,7 @@
 <style>
   :root{
     --text:#F4F4F5; --text-dim:#D4D4DE; --text-faint:#ACACB8;
+    --card-halo:0 1px 2px rgba(0,0,0,.55), 0 0 10px rgba(0,0,0,.30);
     --accent:#FF6A2C; --accent-2:#FFA63D; --good:#4ADE80;
     /* per-card tones — greater use of colour across the cards */
     --c-act:#FF7A3C;   --c-act2:#FFB347;
@@ -47,7 +48,7 @@
   .unit{color:var(--text-faint);font-weight:400}
   .tag{font-size:11px;color:var(--text-faint);font-weight:400;letter-spacing:.04em}
 
-  header{display:flex;justify-content:space-between;align-items:baseline;gap:16px;margin:2px 4px 18px}
+  header{display:flex;justify-content:space-between;align-items:baseline;gap:16px;margin:2px 4px 18px;text-shadow:var(--card-halo)}
   .date{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);font-weight:400}
   .status{font-size:clamp(17px,2.2vw,24px);font-weight:500;margin-top:2px}
   .status b{color:var(--accent-2);font-weight:500}
@@ -62,7 +63,7 @@
     background:linear-gradient(160deg, rgba(8,9,12,.30), rgba(8,9,12,.04) 55%), linear-gradient(165deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
     backdrop-filter:blur(28px) saturate(145%) brightness(.98); -webkit-backdrop-filter:blur(28px) saturate(145%) brightness(.98);
     border:1px solid var(--glass-line); border-radius:var(--r-card); padding:var(--pad); position:relative; overflow:hidden;
-    text-shadow:0 1px 2px rgba(0,0,0,.55), 0 0 10px rgba(0,0,0,.30);
+    text-shadow:var(--card-halo);
     box-shadow:inset 0 1.5px 0 rgba(255,255,255,.18), inset 0 0 0 1px rgba(255,255,255,.05), 0 24px 60px -30px rgba(0,0,0,.92);
   }
   .chead{display:flex;align-items:center;gap:11px;margin-bottom:14px}
@@ -577,11 +578,22 @@ const SKY=[
   [21,  [22,26,68],[60,40,92],[110,70,110],    [150,80,120,.26],85],  // dusk — purple
   [24,  [10,16,38],[18,26,54],[28,36,68],      [120,140,200,.10],80]
 ];
+// muted text + halo react to how bright the sky behind the cards is, so gray text
+// stays legible on light skies (whiter ink + stronger dark halo) without darkening the glass
+function applyInk(s, horizon){
+  const L=Math.max(0,Math.min(1,(0.2126*horizon[0]+0.7152*horizon[1]+0.0722*horizon[2])/255));
+  const a=(lo,hi)=>(lo+(hi-lo)*L).toFixed(3);
+  s.setProperty('--text-faint',`rgba(255,255,255,${a(.62,.94)})`);
+  s.setProperty('--text-dim',`rgba(255,255,255,${a(.84,.99)})`);
+  const ha=a(.30,.85), hb=a(.18,.6), bl=(2+3*L).toFixed(1);
+  s.setProperty('--card-halo',`0 1px ${bl}px rgba(0,0,0,${ha}), 0 0 ${(bl*1.5).toFixed(1)}px rgba(0,0,0,${hb})`);
+}
 function setSky(){
   if(bgPref!=='auto'){ const A=SKY[+bgPref]||SKY[4]; const s=document.documentElement.style;
     s.setProperty('--sky-top',`rgb(${A[1]})`); s.setProperty('--sky-mid',`rgb(${A[2]})`); s.setProperty('--sky-horizon',`rgb(${A[3]})`);
     s.setProperty('--sun',`rgba(${A[4]})`); s.setProperty('--sun-y',A[5]+'%');
-    const w=(A[3][0]-A[3][2])>30; s.setProperty('--viz',w?'#2dd4bf':'#FF6A2C'); s.setProperty('--viz2',w?'#5eead4':'#FFA63D'); return; }
+    const w=(A[3][0]-A[3][2])>30; s.setProperty('--viz',w?'#2dd4bf':'#FF6A2C'); s.setProperty('--viz2',w?'#5eead4':'#FFA63D');
+    applyInk(s,A[3]); return; }
   const dn=new Date(); const h=dn.getHours()+dn.getMinutes()/60;
   let A=SKY[0],B=SKY[SKY.length-1];
   for(let i=0;i<SKY.length-1;i++){ if(h>=SKY[i][0]&&h<=SKY[i+1][0]){ A=SKY[i];B=SKY[i+1];break; } }
@@ -592,6 +604,7 @@ function setSky(){
   s.setProperty('--sky-top',rgb(mix(1))); s.setProperty('--sky-mid',rgb(mix(2))); s.setProperty('--sky-horizon',rgb(mix(3)));
   s.setProperty('--sun',rgba(mix(4))); s.setProperty('--sun-y',L(A[5],B[5]).toFixed(1)+'%');
   const hz=mix(3), warm=(hz[0]-hz[2])>30; s.setProperty('--viz',warm?'#2dd4bf':'#FF6A2C'); s.setProperty('--viz2',warm?'#5eead4':'#FFA63D');
+  applyInk(s,hz);
 }
 setSky();
 setInterval(setSky, 60000);
