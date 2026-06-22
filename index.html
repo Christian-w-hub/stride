@@ -59,6 +59,8 @@
   .wxchip b{font-weight:500;color:var(--text)}
   .wxchip span{color:var(--text-faint)}
   @media (prefers-reduced-motion:reduce){#sky::after{animation:none}}
+  /* tab hidden / display asleep: freeze decorative motion so the backdrop stops forcing the glass filter to re-render */
+  body.idle #sky, body.idle #sky::after, body.idle #wx i{animation-play-state:paused}
 
   .num{font-weight:500;line-height:.95}
   .label{font-size:12px;text-transform:uppercase;letter-spacing:.1em;font-weight:500;color:var(--text-dim)}
@@ -719,13 +721,16 @@ function wxGeo(cb){
 }
 // forced-weather presets for the settings preview (temp picked to feel seasonally right)
 const WX_FORCE={clear:{code:0,cloud:.05,temp:24},fewclouds:{code:2,cloud:.4,temp:19},cloudy:{code:3,cloud:.95,temp:14},fog:{code:45,cloud:.9,temp:9},rain:{code:63,cloud:.9,temp:12},storm:{code:95,cloud:.95,temp:17},snow:{code:73,cloud:.85,temp:-1}};
-function loadWeather(){
+function loadWeather(force){
   if(wxPref!=='auto' && WX_FORCE[wxPref]){ const f=WX_FORCE[wxPref]; WX={code:f.code,temp:f.temp,cloud:f.cloud,precip:0,isDay:1,cls:wxPref}; setSky(); wxParticles(WX.cls); renderWx(); return; }
+  if(!force){ try{ const c=JSON.parse(localStorage.getItem('strideWxCache')||'null');   // reuse a <15-min-old result so reloads don't re-hit the API
+    if(c && c.wx && (Date.now()-c.at)<15*60000){ WX=c.wx; setSky(); wxParticles(WX.cls); renderWx(); return; } }catch(e){} }
   wxGeo(async g=>{ try{
     const u=`https://api.open-meteo.com/v1/forecast?latitude=${g.lat}&longitude=${g.lon}&current=temperature_2m,weather_code,cloud_cover,precipitation,is_day&timezone=auto`;
     const c=(await (await fetch(u)).json()).current; if(!c) return;
     const cloud=(c.cloud_cover||0)/100;
     WX={code:c.weather_code,temp:Math.round(c.temperature_2m),cloud,precip:c.precipitation||0,isDay:c.is_day,cls:wxClass(c.weather_code,cloud)};
+    try{ localStorage.setItem('strideWxCache', JSON.stringify({at:Date.now(),wx:WX})); }catch(e){}
     setSky(); wxParticles(WX.cls); renderWx();
   }catch(e){} });
 }
@@ -734,11 +739,13 @@ function loadWeather(){
 (function(){
   const n=new Date(); const msToMidnight=new Date(n.getFullYear(),n.getMonth(),n.getDate()+1,0,0,5)-n;
   setTimeout(()=>location.reload(), msToMidnight);                       // roll the day at local midnight
-  const guard=()=>{ if(!document.hidden && todayKey(new Date())!==key) location.reload(); };
+  const guard=()=>{ document.body.classList.toggle('idle', document.hidden);   // pause decorative animations while hidden (saves GPU on an always-on display)
+    if(!document.hidden && todayKey(new Date())!==key) location.reload(); };
   document.addEventListener('visibilitychange', guard);                  // iPad woke / refocused on a new day
   window.addEventListener('pageshow', e=>{ if(e.persisted && todayKey(new Date())!==key) location.reload(); });
-  // also refresh the staleness banner periodically so a long-idle instance shows it
-  setInterval(()=>{ if(store.updated){ const hrs=(Date.now()-store.updated)/3.6e6; const s=$('stale');
+  // periodic safety net: roll the day even if the midnight timer was suspended, and surface the staleness banner
+  setInterval(()=>{ if(!document.hidden && todayKey(new Date())!==key){ location.reload(); return; }
+    if(store.updated){ const hrs=(Date.now()-store.updated)/3.6e6; const s=$('stale');
     if(hrs>20){ s.textContent='Last synced '+Math.round(hrs)+'h ago — open the iPhone shortcut to refresh.'; s.classList.add('show'); } } }, 600000);
 })();
 
@@ -759,9 +766,13 @@ function applyRemote(remote){
   }catch(e){ return; }
   sessionStorage.setItem('strideSilent','1'); location.reload();      // seamless re-render with fresh data
 }
-function pollFirebase(){ if(!FIREBASE_URL) return;
-  fetch(FIREBASE_URL.replace(/\/+$/,'')+'/stride.json',{cache:'no-store'})
-    .then(r=> r.ok ? r.json() : null).then(applyRemote).catch(()=>{});
+let _fbUpdated=null;
+function pollFirebase(){ if(!FIREBASE_URL) return; const base=FIREBASE_URL.replace(/\/+$/,'');
+  // poll only the tiny `updated` stamp; pull the full blob (~hundreds of KB) only when it actually changes
+  fetch(base+'/stride/updated.json',{cache:'no-store'}).then(r=> r.ok ? r.json() : null).then(u=>{
+    if(u==null || Number(u)===Number(_fbUpdated)) return; _fbUpdated=u;
+    return fetch(base+'/stride.json',{cache:'no-store'}).then(r=> r.ok ? r.json() : null).then(applyRemote);
+  }).catch(()=>{});
 }
 if(FIREBASE_URL){ pollFirebase(); setInterval(pollFirebase, 60000); }
 
@@ -1134,7 +1145,7 @@ $('settingsBtn').innerHTML=icon('settings'); $('settingsBtn').addEventListener('
 document.querySelectorAll('.card').forEach(c=>{
   c.insertAdjacentHTML('afterbegin','<div class="glassfx gf-filter"></div><div class="glassfx gf-overlay"></div><div class="glassfx gf-specular"></div>');
 });
-loadWeather(); setInterval(loadWeather, 15*60000);   // start weather now that icon()/ICONS exist
+loadWeather(); setInterval(()=>loadWeather(true), 15*60000);   // start weather now that icon()/ICONS exist (interval forces a fresh fetch)
 // surface today's workout on the gym card (deferred so training defs exist; reusable so the schedule-shift updates it live)
 function refreshGymCard(){ try{ const k=schedule()[schedIdx()]; const togo=gym>=GOAL.gym?'week complete':(GOAL.gym-gym)+' to go this week';
   $('gymFoot').innerHTML=`Today · <b>${SESS_TITLE[k]}</b><br><span style="color:var(--text-faint);font-size:12px">${togo}</span>`; }catch(e){} }
