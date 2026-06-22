@@ -750,31 +750,43 @@ function loadWeather(force){
 })();
 
 // ---- Firebase live sync (always-on, both devices, no manual refresh) ----
+// stable stringify (sorted keys, recursive) so change-detection is order-independent and loop-safe
+function stable(o){ if(o===null||typeof o!=='object') return JSON.stringify(o);
+  if(Array.isArray(o)) return '['+o.map(stable).join(',')+']';
+  return '{'+Object.keys(o).sort().map(k=>JSON.stringify(k)+':'+stable(o[k])).join(',')+'}'; }
 function applyRemote(remote){
-  if(!remote || typeof remote!=='object' || remote.updated==null) return;  // only act on stamped writes (avoids empty-DB loops)
-  if(Number(remote.updated)===Number(store.updated)) return;               // nothing new (coerce: phone/app may stamp number or numeric string)
+  if(!remote || typeof remote!=='object') return;
   try{
     const L=store;
     const merged=Object.assign({}, L, remote);
-    merged.updated    = Number(remote.updated)||L.updated;                      // normalise to epoch-ms so freshness compares cleanly
+    merged.updated    = Number(remote.updated)||L.updated;                      // normalise to epoch-ms (for the staleness banner only)
     merged.days       = Object.assign({}, L.days||{}, remote.days||{});         // remote days win per-day; local-only days kept
     merged.gymWeeks   = Object.assign({}, remote.gymWeeks||{}, L.gymWeeks||{}); // union of week history
-    merged.gymLog     = remote.gymLog ? Object.assign({}, remote.gymLog) : (L.gymLog||{});  // remote authoritative for the session log (so deletes/undo propagate)
+    merged.gymLog     = remote.gymLog!=null ? Object.assign({}, remote.gymLog) : (L.gymLog||{});  // remote authoritative for the session log (undo/deletes propagate)
     merged.celebrated = L.celebrated||remote.celebrated||{};                    // never replay celebrations
     merged.gymManual  = L.gymManual||{};                                        // dashboard-only UI memory
+    if(stable(merged)===stable(L)) return;   // nothing actually changed → no reload (loop-safe even right after a reload; does NOT depend on `updated`)
     localStorage.setItem('stride', JSON.stringify(merged));
   }catch(e){ return; }
   sessionStorage.setItem('strideSilent','1'); location.reload();      // seamless re-render with fresh data
 }
-let _fbUpdated=null;
-function pollFirebase(){ if(!FIREBASE_URL) return; const base=FIREBASE_URL.replace(/\/+$/,'');
-  // poll only the tiny `updated` stamp; pull the full blob (~hundreds of KB) only when it actually changes
-  fetch(base+'/stride/updated.json',{cache:'no-store'}).then(r=> r.ok ? r.json() : null).then(u=>{
-    if(u==null || Number(u)===Number(_fbUpdated)) return; _fbUpdated=u;
-    return fetch(base+'/stride.json',{cache:'no-store'}).then(r=> r.ok ? r.json() : null).then(applyRemote);
-  }).catch(()=>{});
+function pullFirebase(){ if(!FIREBASE_URL) return; const base=FIREBASE_URL.replace(/\/+$/,'');
+  fetch(base+'/stride.json',{cache:'no-store'}).then(r=> r.ok ? r.json() : null).then(applyRemote).catch(()=>{});
 }
-if(FIREBASE_URL){ pollFirebase(); setInterval(pollFirebase, 60000); }
+// live push via Firebase REST streaming (EventSource) — instant, only sends deltas, doesn't depend on `updated`.
+// any change to /stride fires an event; we re-read truth and apply. A slow poll is the safety net.
+function startFirebase(){ if(!FIREBASE_URL) return;
+  let streaming=false;
+  if(typeof EventSource!=='undefined'){ try{
+    const es=new EventSource(FIREBASE_URL.replace(/\/+$/,'')+'/stride.json');
+    const onEv=()=>pullFirebase();
+    es.addEventListener('put', onEv); es.addEventListener('patch', onEv);
+    streaming=true;
+  }catch(e){ streaming=false; } }
+  pullFirebase();                                              // initial pull
+  setInterval(pullFirebase, streaming?300000:60000);          // safety net: 5 min if streaming works, else 60 s
+}
+startFirebase();
 
 // ---- shared area-chart drawer ------------------------------------------
 function drawArea(svg, vals, max, gid, goalFrac, dots){
