@@ -92,6 +92,16 @@ Then: **Automation → When iPhone is Unlocked → Run Immediately** (turn off A
 Running) → run Stride Sync. Add a couple of **Time of Day** runs too (e.g. 9am, 2pm, 7pm)
 as backup. Now it pushes fresh data many times a day, hands-off.
 
+**Make it silent (do this on every automation):** in each automation set **Run
+Immediately** ON and **Notify When Run** OFF. That removes the confirmation prompt *and*
+the "ran your automation" notification — it then fires entirely in the background: no
+banner to tap, no app opening, no interruption to whatever you're doing.
+
+**One-time only:** the first time Stride Sync runs it asks "Allow Shortcuts to read
+[Steps/Sleep/Distance]?" — tap Allow once. After that it never asks again and reads Health
+silently. (Health reads and the Firebase PUT both work with the phone locked / in your
+pocket.)
+
 ---
 
 ## Step 4 — gym (auto, by location, no chore)
