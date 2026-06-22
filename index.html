@@ -21,7 +21,8 @@
     --c-gym:#3FE0A0;   --c-gym2:#86E88A;
     --c-walk:#FFC24B;  --c-walk2:#FF9A3D;
     --sky-top:#16386a; --sky-mid:#5a86b8; --sky-horizon:#dfeaf5; --sun:rgba(255,225,170,.32); --sun-x:50%; --sun-y:70%;
-    --viz:#FF6A2C; --viz2:#FFA63D;   /* reactive data-viz accent: warm on cool skies, teal on warm skies */
+    --viz:#FF6A2C; --viz2:#FFA63D;   /* per-card data-viz: defaults to the card's own colour (see .card rule) */
+    --viz-fb:#FF6A2C; --viz2-fb:#FFA63D;   /* contrast fallback: warm on cool skies, teal on warm skies; used only when a card's colour would clash with the sky */
     --glass:rgba(16,17,21,.56); --glass-line:rgba(255,255,255,.14); --inset:rgba(255,255,255,.10);
     --r-card:14px; --r-el:5px; --r-chip:9px; --gap:18px; --pad:22px;
     --font:"Inter Tight","Inter",system-ui,-apple-system,sans-serif;
@@ -36,12 +37,12 @@
   /* living sky — time-of-day gradient + a slow-drifting sun glow */
   #sky{position:fixed;inset:0;z-index:-2;pointer-events:none;transition:background 4s linear;will-change:transform;
     background:linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 46%, var(--sky-horizon) 100%);
-    animation:skyflow 70s ease-in-out infinite alternate;}
-  @keyframes skyflow{0%{transform:scale(1.14) translate3d(-2.4%,-1.8%,0)}50%{transform:scale(1.18) translate3d(1.6%,1%,0)}100%{transform:scale(1.14) translate3d(2.4%,1.8%,0)}}
+    animation:skyflow 60s ease-in-out infinite alternate;}
+  @keyframes skyflow{0%{transform:scale(1.16) translateY(-4.5%)}50%{transform:scale(1.22) translateY(3%)}100%{transform:scale(1.16) translateY(-4.5%)}}
   #sky::after{content:"";position:absolute;inset:0;transition:background 4s linear;
     background:radial-gradient(56% 46% at var(--sun-x) var(--sun-y), var(--sun), transparent 62%);
-    animation:sundrift 80s ease-in-out infinite alternate;}
-  @keyframes sundrift{from{transform:translate3d(-1.5%,1%,0) scale(1.02)}to{transform:translate3d(2%,-1.5%,0) scale(1.06)}}
+    animation:sundrift 50s ease-in-out infinite alternate;}
+  @keyframes sundrift{from{transform:translate3d(-9%,5%,0) scale(1.0)}to{transform:translate3d(9%,-6%,0) scale(1.14)}}
   /* weather precipitation layer — sits above the sky, below the cards */
   #wx{position:fixed;inset:-6% 0 0;z-index:-1;pointer-events:none;overflow:hidden;opacity:0;transition:opacity 1.4s ease}
   body.wx-on #wx{opacity:1}
@@ -95,7 +96,8 @@
   .activity{--ca:var(--c-act);--cb:var(--c-act2);grid-column:1 / 4}
   .sleep{--ca:var(--c-sleep);--cb:var(--c-sleep2);grid-column:4 / 7}
   .gym{--ca:var(--c-gym);--cb:var(--c-gym2);grid-column:7 / 10}
-  .hero{grid-column:10 / 13; grid-row:1 / 3; display:flex;flex-direction:column}
+  .hero{--ca:var(--accent);--cb:var(--accent-2);grid-column:10 / 13; grid-row:1 / 3; display:flex;flex-direction:column}
+  .card,.sheet{--viz:var(--ca,#FF6A2C);--viz2:var(--cb,#FFA63D)}  /* data viz uses the card's own colour by default; JS flips to --viz-fb only when it would clash with the sky */
   .walk{--ca:var(--c-walk);--cb:var(--c-walk2);grid-column:1 / 6}
   .clock{--ca:var(--accent);--cb:var(--accent-2);grid-column:6 / 10}
 
@@ -277,9 +279,7 @@
   <svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="glass-distortion" x="0" y="0" width="100%" height="100%" filterUnits="objectBoundingBox">
     <feTurbulence type="fractalNoise" baseFrequency="0.01 0.012" numOctaves="2" seed="4" result="noise"/>
     <feGaussianBlur in="noise" stdDeviation="2" result="blurred"/>
-    <feDisplacementMap in="SourceGraphic" in2="blurred" scale="110" xChannelSelector="R" yChannelSelector="G">
-      <animate attributeName="scale" values="98;128;98" dur="13s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.5;1" keySplines="0.45 0 0.55 1;0.45 0 0.55 1"/>
-    </feDisplacementMap>
+    <feDisplacementMap in="SourceGraphic" in2="blurred" scale="110" xChannelSelector="R" yChannelSelector="G"/>
   </filter></svg>
 
   <header>
@@ -624,12 +624,35 @@ function paint(top, mid, hz, sun, sunY){
   const rgb=a=>`rgb(${a[0]|0},${a[1]|0},${a[2]|0})`;
   s.setProperty('--sky-top',rgb(top)); s.setProperty('--sky-mid',rgb(mid)); s.setProperty('--sky-horizon',rgb(hz));
   s.setProperty('--sun',`rgba(${sun[0]|0},${sun[1]|0},${sun[2]|0},${sunA.toFixed(3)})`); s.setProperty('--sun-y',sunY+'%');
-  const warm=(hz[0]-hz[2])>30; s.setProperty('--viz',warm?'#2dd4bf':'#FF6A2C'); s.setProperty('--viz2',warm?'#5eead4':'#FFA63D');
+  const warm=(hz[0]-hz[2])>30; s.setProperty('--viz-fb',warm?'#2dd4bf':'#FF6A2C'); s.setProperty('--viz2-fb',warm?'#5eead4':'#FFA63D');
   // adaptive glass dim: darken the reflected sky more when it's bright, so light text
   // stays legible on real translucent glass (no flat veil, no text shadows). Dark skies stay bright.
   const lum=c=>(0.2126*c[0]+0.7152*c[1]+0.0722*c[2])/255;
   const Lr=0.42*lum(mid)+0.58*lum(hz);          // cards span mid->horizon; weight the brighter horizon
   s.setProperty('--glass-dim', Math.max(.28, Math.min(1, 0.19/Math.max(.04,Lr))).toFixed(3));
+  adaptViz(top,mid,hz);
+}
+// per-card data viz: keep each card's own colour, but flip to the sky-contrast fallback
+// only when that colour would clash with the backdrop (the "intelligent" bit)
+function adaptViz(top,mid,hz){
+  const lin=x=>{x/=255;return x<=.03928?x/12.92:Math.pow((x+.055)/1.055,2.4)};
+  const rl=c=>.2126*lin(c[0])+.7152*lin(c[1])+.0722*lin(c[2]);
+  const cr=(a,b)=>{const hi=Math.max(rl(a),rl(b)),lo=Math.min(rl(a),rl(b));return (hi+.05)/(lo+.05)};
+  const hex=s=>{s=(s||'').trim();if(s[0]==='#'){if(s.length===4)s='#'+s[1]+s[1]+s[2]+s[2]+s[3]+s[3];return [parseInt(s.slice(1,3),16),parseInt(s.slice(3,5),16),parseInt(s.slice(5,7),16)];}const m=s.match(/\d+/g);return m?m.slice(0,3).map(Number):null;};
+  const skyAt=f=>f<=.46?top.map((c,i)=>c+(mid[i]-c)*(f/.46)):mid.map((c,i)=>c+(hz[i]-c)*((f-.46)/.54));
+  const hue=c=>{const r=c[0]/255,g=c[1]/255,b=c[2]/255,mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;if(d<1e-4)return -1;let h=mx===r?((g-b)/d)%6:mx===g?(b-r)/d+2:(r-g)/d+4;h*=60;return h<0?h+360:h;};
+  const sat=c=>{const mx=Math.max(...c)/255,mn=Math.min(...c)/255;return mx<1e-4?0:(mx-mn)/mx;};
+  const hueGap=(a,b)=>{const d=Math.abs(a-b);return Math.min(d,360-d);};
+  const pageH=document.documentElement.scrollHeight||1;
+  document.querySelectorAll('.grid > .card').forEach(card=>{
+    const cb=hex(getComputedStyle(card).getPropertyValue('--cb')); if(!cb) return;
+    const r=card.getBoundingClientRect(); const f=Math.max(0,Math.min(1,((r.top+r.bottom)/2+window.scrollY)/pageH));
+    const sky=skyAt(f), bg=sky.map(c=>c*0.6);   // card backdrop ~ sky darkened by the glass overlay
+    const ch=hue(cb), sh=hue(sky);
+    const clash = cr(cb,bg)<1.7 || (ch>=0 && sh>=0 && sat(sky)>0.2 && hueGap(ch,sh)<34);  // too dark, or too close in hue to the sky
+    if(clash){ card.style.setProperty('--viz','var(--viz-fb)'); card.style.setProperty('--viz2','var(--viz2-fb)'); }
+    else { card.style.removeProperty('--viz'); card.style.removeProperty('--viz2'); }
+  });
 }
 function setSky(){
   if(bgPref!=='auto'){ const A=SKY[+bgPref]||SKY[4]; paint([...A[1]],[...A[2]],[...A[3]],[...A[4]],A[5]); return; }
