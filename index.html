@@ -13,7 +13,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500&display=swap" rel="stylesheet" />
 <style>
   :root{
-    --text:#F4F4F5; --text-dim:#D4D4DE; --text-faint:#ACACB8;
+    --text:#FFFFFF; --text-dim:#F2F3F7; --text-faint:#E6E8EE;
     --accent:#FF6A2C; --accent-2:#FFA63D; --good:#4ADE80;
     /* per-card tones — greater use of colour across the cards */
     --c-act:#FF7A3C;   --c-act2:#FFB347;
@@ -40,8 +40,6 @@
     background:radial-gradient(56% 46% at var(--sun-x) var(--sun-y), var(--sun), transparent 62%);
     animation:sundrift 80s ease-in-out infinite alternate;}
   @keyframes sundrift{from{transform:translate3d(-1.5%,1%,0) scale(1.02)}to{transform:translate3d(2%,-1.5%,0) scale(1.06)}}
-  @keyframes cardflow{to{background-position:220% 0}}
-  @media (prefers-reduced-motion:reduce){.card{animation:none!important}}
   /* weather precipitation layer — sits above the sky, below the cards */
   #wx{position:fixed;inset:-6% 0 0;z-index:-1;pointer-events:none;overflow:hidden;opacity:0;transition:opacity 1.4s ease}
   body.wx-on #wx{opacity:1}
@@ -75,13 +73,15 @@
 
   .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:var(--gap)}
   .card{
-    background:var(--glass);
-    background:linear-gradient(115deg, color-mix(in srgb, var(--ca,#8aa) 30%, transparent), color-mix(in srgb, var(--cb,#557) 18%, transparent) 50%, color-mix(in srgb, var(--ca,#8aa) 30%, transparent)), linear-gradient(0deg, rgba(8,10,16,.20), rgba(8,10,16,.20));
-    background-size:220% 100%, 100% 100%; animation:cardflow 24s linear infinite;
-    backdrop-filter:blur(26px) saturate(155%); -webkit-backdrop-filter:blur(26px) saturate(155%);
-    border:1px solid var(--glass-line); border-radius:var(--r-card); padding:var(--pad); position:relative; overflow:hidden;
-    box-shadow:inset 0 1.5px 0 rgba(255,255,255,.24), inset 0 0 0 1px rgba(255,255,255,.06), 0 24px 60px -30px rgba(0,0,0,.85);
+    border:1px solid var(--glass-line); border-radius:var(--r-card); padding:var(--pad); position:relative; overflow:hidden; isolation:isolate;
+    box-shadow:0 24px 60px -30px rgba(0,0,0,.9);
   }
+  /* liquid glass: distorted blurred backdrop + crisp colour overlay + specular rim (layered so only the backdrop refracts) */
+  .glassfx{position:absolute;inset:0;border-radius:inherit;pointer-events:none}
+  .gf-filter{z-index:0;backdrop-filter:blur(3px) url(#glass-distortion) saturate(165%) brightness(.92);-webkit-backdrop-filter:blur(5px) saturate(165%) brightness(.92)}
+  .gf-overlay{z-index:1;background:linear-gradient(160deg, rgba(8,10,16,.36), rgba(8,10,16,.12) 72%), color-mix(in srgb, var(--ca,#8aa) 9%, transparent)}
+  .gf-specular{z-index:2;box-shadow:inset 1.5px 1.5px 1px rgba(255,255,255,.42), inset -1px -1px 1px rgba(255,255,255,.10), inset 0 2px 0 color-mix(in srgb, var(--ca,#fff) 22%, transparent)}
+  .card>:not(.glassfx){position:relative;z-index:3}
   .chead{display:flex;align-items:center;gap:11px;margin-bottom:14px}
   .chip{width:36px;height:36px;border-radius:var(--r-chip);display:grid;place-items:center;font-size:17px;border:1px solid var(--glass-line);
     background:rgba(255,255,255,.06); color:var(--ca,#fff);
@@ -272,6 +272,11 @@
 <body>
   <div id="sky"></div>
   <div id="wx" aria-hidden="true"></div>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="glass-distortion" x="0" y="0" width="100%" height="100%" filterUnits="objectBoundingBox">
+    <feTurbulence type="fractalNoise" baseFrequency="0.01 0.012" numOctaves="2" seed="4" result="noise"/>
+    <feGaussianBlur in="noise" stdDeviation="2" result="blurred"/>
+    <feDisplacementMap in="SourceGraphic" in2="blurred" scale="110" xChannelSelector="R" yChannelSelector="G"/>
+  </filter></svg>
 
   <header>
     <div>
@@ -1029,6 +1034,13 @@ document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeOverlay(); }
 (function(){ const ics=document.querySelectorAll('.hero .ic'); const names=['activity','footprints','dumbbell','moon','gauge'];
   ics.forEach((el,i)=>{ if(names[i]) el.innerHTML=icon(names[i],15); }); })();
 $('settingsBtn').innerHTML=icon('settings'); $('settingsBtn').addEventListener('click', openSettings);
+// liquid-glass: layer a refracting backdrop + colour overlay + specular into each card; specular follows the pointer
+document.querySelectorAll('.card').forEach(c=>{
+  c.insertAdjacentHTML('afterbegin','<div class="glassfx gf-filter"></div><div class="glassfx gf-overlay"></div><div class="glassfx gf-specular"></div>');
+  const sp=c.querySelector('.gf-specular');
+  c.addEventListener('pointermove',e=>{ const r=c.getBoundingClientRect(); sp.style.background=`radial-gradient(circle at ${e.clientX-r.left}px ${e.clientY-r.top}px, rgba(255,255,255,.16), rgba(255,255,255,.03) 42%, transparent 66%)`; });
+  c.addEventListener('pointerleave',()=>{ sp.style.background=''; });
+});
 loadWeather(); setInterval(loadWeather, 15*60000);   // start weather now that icon()/ICONS exist
 // surface today's workout on the gym card (deferred so training defs exist)
 (function(){ try{ const k=schedule()[(new Date().getDay()+6)%7]; const togo=gym>=GOAL.gym?'week complete':(GOAL.gym-gym)+' to go this week';
