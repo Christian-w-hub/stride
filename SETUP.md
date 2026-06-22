@@ -40,11 +40,25 @@ sleep or pause, unlike most free tiers).
 3. Open the **Rules** tab, paste this, **Publish**:
    ```json
    { "rules": {
-       "stride": { ".read": true, ".write": "auth !== null" }
+       "stride": {
+         ".read": true,
+         ".write": "auth !== null",
+         "updated": { ".write": true },
+         "gymLog": {
+           "$id": {
+             ".write": "(!data.exists() && auth === null) || auth !== null",
+             ".validate": "newData.isString() && newData.val().length <= 40"
+           }
+         }
+       }
    } }
    ```
-   (Public read = the iPad/iPhone pages hold **no secret**. Write needs the key your
-   Shortcut carries — see below. Only your activity numbers are stored, never location.)
+   What this means: **public read** (the iPad/iPhone pages hold **no secret**). Steps, sleep,
+   distance, etc. need the write key your Shortcut carries. The one exception is the gym
+   log: **anyone can *create* a new session entry without a key** (so the in-app "Log a
+   session" button syncs across devices straight from the public page), but **overwriting or
+   deleting** an existing entry needs the key — so a stranger who found the URL can't tamper
+   with or wipe your history. Only your activity numbers are stored, never location.
 4. Copy your database URL from the top of the Data tab — it looks like
    `https://stride-xxxx-default-rtdb.firebaseio.com`.
 5. **Write key:** Project Settings (gear) → **Service accounts → Database secrets** →
@@ -84,48 +98,83 @@ as backup. Now it pushes fresh data many times a day, hands-off.
 
 A web page can't watch location in the background and the dashboard iPad sits at home, so
 gym detection runs on your **iPhone** via Shortcuts (iOS geofences natively) and reaches
-the dashboard through Firebase (Step 2). You don't need any date math: the phone just
-writes a one-shot **token** (`gymBump`) on a real visit, and the dashboard turns each new
-token into +1 for the current week itself.
+the dashboard through Firebase (Step 2). No date math on the phone: each real visit just
+**adds one timestamped entry to a log** (`/stride/gymLog/<id>`), and the dashboard counts
+the entries that fall in the current week. This is robust to being offline (two visits =
+two entries, nothing overwrites), supports undo (delete the entry), and is correct on a
+fresh device (it reads the whole log).
 
 **Two Personal Automations**, both keyed to **PureGym Maidenhead** (Automations tab → +
 → Personal → set the location + a tight radius; Run Immediately; turn off Ask Before
-Running). They write to Firebase with `Get Contents of URL` → **Method: PUT**:
+Running). They write to Firebase with `Get Contents of URL`:
 
 1. **When I Arrive → PureGym Maidenhead**
-   - *Current Date* → *Format Date* (ISO 8601).
-   - *Get Contents of URL* — `DB_URL/stride/_gymArrived.json?auth=SECRET`, **PUT**, Request
-     Body = Text = the formatted date. (Stores when you walked in.)
+   - *Current Date* → *Format Date* (ISO 8601) → call it `arrived`.
+   - *Get Contents of URL* — `DB_URL/stride/_gymArrived.json?auth=SECRET`, **PUT**, Body =
+     `arrived`. (Remembers when you walked in.)
 
 2. **When I Leave → PureGym Maidenhead**
-   - *Get Contents of URL* — `DB_URL/stride/_gymArrived.json?auth=SECRET`, **GET** → the
-     stored arrival date.
+   - *Get Contents of URL* — `DB_URL/stride/_gymArrived.json?auth=SECRET`, **GET** → arrival.
    - *Get Time Between Dates* (arrival → Current Date) in **Minutes**.
    - *If* minutes **≥ 20**:
-     - *Current Date* → *Format Date* (ISO 8601) → call it `token`.
-     - *Get Contents of URL* — `DB_URL/stride/gymBump.json?auth=SECRET`, **PUT**, Body =
-       `token`.
-     - *Get Contents of URL* — `DB_URL/stride/updated.json?auth=SECRET`, **PUT**, Body =
-       `token` (this is what makes the dashboard refresh).
+     - *Format Date* (arrival, format `yyyy-MM-dd'T'HH`) → call it `id` (one entry per
+       arrival-hour → a Shortcut retry overwrites the same id, never double-counts).
+     - *Current Date* → *Format Date* (ISO 8601) → call it `ts`.
+     - *Get Contents of URL* — `DB_URL/stride/gymLog/gym_[id].json`, **PUT**, Body = `ts`.
+       *(No `?auth` needed — creating a new log entry is allowed keyless; see the rules.)*
+     - *Get Contents of URL* — `DB_URL/stride/updated.json`, **PUT**, Body = `ts` (this is
+       what makes every dashboard refresh).
      - *(optional)* Show Notification "Gym logged ✓".
    - *Otherwise*: do nothing (a sub-20-min pop-in doesn't count).
 
-That's it — no weekly reset to maintain, no count to track on the phone. The dashboard
-reads `gymBump`, sees it's new, and adds one to this week. Leaving the gym a second time
-the same day writes a fresh token and counts again.
+No weekly reset to maintain, no count to track. The dashboard reads the log and counts
+this week's entries. Leave the gym a second time the same day → a different arrival-hour id
+→ counts again.
 
-**Manual logging (when you want it):**
-- *On the dashboard (iPad or phone browser):* tap the **Gym** card → **"Log a session
-  today"** (tap again to undo). On the dashboard this counts locally and is preserved
-  across syncs; to make a manual log show on *every* device, use the phone shortcut below.
-- *Propagating one-tap (phone):* make a home-screen shortcut that PUTs a fresh `token` to
-  `gymBump` + `updated` exactly like step 2's success branch. Tapping it logs a session
-  everywhere.
+**Manual logging (works in-app on iPad *and* iPhone, synced):** open the dashboard on
+either device, tap the **Gym** card → **"Log a session today"**. It writes a log entry the
+same way, so it shows on every device within a minute. Tap again to undo — undo on the
+dashboard removes it locally; to delete it everywhere you'd remove the entry from the phone
+(delete needs the key). For pure one-tap-from-the-homescreen, make a phone shortcut that
+does step 2's success branch.
 
-**Security:** keep the write `SECRET` only inside the phone Shortcuts. Do **not** put it in
-the web page (`FIREBASE_KEY` stays `''`) — the page URL is public, so an embedded write key
-would let anyone write. Reads stay open behind the obscure DB URL (only your activity
-numbers, never location — the geofence runs and dies on the phone).
+**Security:** leave `FIREBASE_KEY` as `''` in the page (the URL is public). The rules let
+anyone *create* a gym-log entry keyless (so the in-app button syncs) but require the key to
+*overwrite/delete* — so your history can't be tampered with. Steps/sleep/distance writes
+still need the key, which lives only in the phone Shortcuts. Only numbers leave the phone,
+never location.
+
+---
+
+## Step 4b — optional: jump-start with your Health history
+
+So the trends, streaks and averages aren't empty on day one, backfill a few months of
+Apple Health data. One **Shortcut "Stride Backfill"**, run once:
+
+- *Number* = how many days back (e.g. `120`). **Repeat** that many times; inside, `Repeat
+  Index` is 1, 2, 3…
+  - *Current Date* → *Adjust Date* → **subtract `Repeat Index` days** → `Day`. (Index 1 =
+    yesterday; today is owned by the live sync, skip it.)
+  - *Format Date* (`Day`, `yyyy-MM-dd`, **device-local timezone**) → `DayKey`.
+  - **Steps:** *Find Health Samples* → Steps, date is `Day` → *Calculate Statistics → Sum*.
+  - **Distance:** *Find Health Samples* → Walking + Running Distance, `Day` → *Sum* (in
+    **km**; ÷1000 if your locale returns metres — check one day first).
+  - **Sleep:** *Find Health Samples* → Sleep Analysis for the night ending on `Day` → total
+    asleep → **hours**. If no sample, skip the field.
+  - *If* distance ≥ 1.2 → `walk` = `true`, else `false`.
+  - *Dictionary* `{steps, dist, sleep, walk}` (omit `sleep` if none) → *Get Contents of
+    URL* `DB_URL/stride/days/[DayKey].json?auth=SECRET`, **PUT**, Body = the dictionary.
+  - *Wait 0.3 seconds* (gentle on rate limits).
+- **After the loop:** one *Get Contents of URL* `DB_URL/stride/updated.json?auth=SECRET`,
+  **PUT**, Body = Current Date as Unix-time-ms. This single write makes the dashboard pull
+  the whole import.
+
+Notes: 3–6 months is the sweet spot (anything past 5 years is auto-pruned). Keep batches
+≤ ~60 days/run. **Omit the `hours` field** (the movement-clock can't be reconstructed; it
+just stays empty for old days, which is honest) and **omit `sleep` on days with no sample**
+(don't write `0`). Gym history can't come from Health — if you want past weekly gym counts,
+PUT them to `DB_URL/stride/gymWeeks.json` keyed by the Monday's date, e.g.
+`{"2026-06-01":3,"2026-06-08":4}`.
 
 ---
 
