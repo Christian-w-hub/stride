@@ -405,6 +405,9 @@ const num = n => { const x=Number(n); return Number.isFinite(x)?x:0; };
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 // silent refresh: a Firebase-triggered reload must not replay the entrance/count-up
 const silent = sessionStorage.getItem('strideSilent')==='1'; sessionStorage.removeItem('strideSilent');
+// set a value via rAF (to play the CSS transition) only when it'll actually be seen; otherwise set it now so a
+// silent/asleep-screen reload shows the true geometry on wake instead of animating up from empty
+function rafSet(fn){ if(silent||reduce||document.hidden) fn(); else requestAnimationFrame(fn); }
 if(silent) document.documentElement.classList.add('silent');
 // === Paste your Firebase Realtime Database URL here to turn on always-on cross-device sync ===
 // e.g. 'https://stride-xxxx-default-rtdb.firebaseio.com'  (leave '' for local / URL-param mode)
@@ -502,7 +505,7 @@ if(dist) countUp($('dist'), dist, v=>v.toFixed(1)); else $('dist').textContent='
 // ---- gym: segmented progress ring --------------------------------------
 countUp($('gym'), gym); $('gymGoal').textContent = GOAL.gym;
 $('gymFoot').textContent = gym>=GOAL.gym ? "That’s the week." : (GOAL.gym-gym)+" to go";
-requestAnimationFrame(()=> $('gymArc').style.strokeDasharray = Math.min(100, gym/GOAL.gym*100)+' 100');
+rafSet(()=> $('gymArc').style.strokeDasharray = Math.min(100, gym/GOAL.gym*100)+' 100');
 (function(){ const g=$('gymTicks'); let t=''; // 5 segment dividers
   for(let i=0;i<GOAL.gym;i++){ const a=-Math.PI/2 + i*(2*Math.PI/GOAL.gym);
     const x1=52+Math.cos(a)*40.5,y1=52+Math.sin(a)*40.5,x2=52+Math.cos(a)*47.5,y2=52+Math.sin(a)*47.5;
@@ -517,7 +520,7 @@ requestAnimationFrame(()=> $('gymArc').style.strokeDasharray = Math.min(100, gym
   const score=Math.round(100*(0.4*gymPart+0.4*walkPart+0.2*stepPart));
   countUp($('score'), score);
   $('scoreCap').textContent = score>=80?'Strong week':score>=55?'On track':score>=30?'Building':'Early days';
-  requestAnimationFrame(()=> $('gaugeArc').style.strokeDasharray = score+' 100');
+  rafSet(()=> $('gaugeArc').style.strokeDasharray = score+' 100');
 })();
 
 // ---- walk: ring + 7-day history ----------------------------------------
@@ -526,7 +529,7 @@ $('walkState').classList.toggle('done', walkDone);
 $('walkSub').textContent = walkDone?'Nice. Filled for today.':'A walk fills the ring.';
 $('streak').textContent = streak;
 $('consistency').textContent = wc.done+'/'+wc.elapsed+' this wk';
-requestAnimationFrame(()=>{ $('walkArc').style.strokeDashoffset = walkDone?0:213.6; if(walkDone) $('walkArc').style.stroke='var(--good)'; });
+rafSet(()=>{ $('walkArc').style.strokeDashoffset = walkDone?0:213.6; if(walkDone) $('walkArc').style.stroke='var(--good)'; });
 (function(){ const w=$('walkWeek'); const init=['M','T','W','T','F','S','S']; let html='';
   for(let i=6;i>=0;i--){ const d=new Date(now); d.setDate(d.getDate()-i);
     const r=store.days[todayKey(d)]; const on=r&&r.walk; const today=i===0;
@@ -548,7 +551,7 @@ function fmtHour(h){ const ap=h<12?'am':'pm'; let x=h%12; if(x===0)x=12; return 
   const bars=$('clockBars'); bars.innerHTML='';
   for(let h=START;h<=END;h++){ const s=document.createElement('span'); let c=''; if(top.has(h))c='peak'; if(h===cur)c+=' now';
     s.className=c.trim(); s.title=fmtHour(h)+' · '+Math.round(avg[h])+' steps avg'; bars.appendChild(s);
-    requestAnimationFrame(()=> s.style.height=Math.round((avg[h]/max)*100)+'%'); }
+    rafSet(()=> s.style.height=Math.round((avg[h]/max)*100)+'%'); }
   const ins=$('clockInsight');
   if(days<3){ ins.textContent='Learning your rhythm — a few more synced days and I’ll spot when you usually move.'; return; }
   let line='Most days you move around <b>'+fmtHour(ranked[0])+'</b>.';
@@ -594,6 +597,7 @@ function fmtHour(h){ const ap=h<12?'am':'pm'; let x=h%12; if(x===0)x=12; return 
 
 // ---- celebration moments (once per event) ------------------------------
 (function(){
+  if(silent) return;   // a background-sync reload must not fire (or silently consume) a celebration to an empty room; it'll show on the next real view
   store.celebrated = store.celebrated || {}; const c = store.celebrated; const wk = weekId(now);
   const fireWalk = walkDone && c.walk !== key;
   const fireGym = gym>=GOAL.gym && c.gym !== wk;
