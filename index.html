@@ -446,14 +446,17 @@ if (p.toString().length>0){
   const cut=(()=>{const c=new Date(now);c.setDate(c.getDate()-1825);return todayKey(c);})(); // keep ~5y so months/years aggregates + all-time trophies persist (never resets)
   for(const d in store.days){ if(d<cut) delete store.days[d]; }
   try{ localStorage.setItem('stride', JSON.stringify(store)); }catch(e){}
+  try{ history.replaceState({},'',location.pathname); }catch(e){}   // consume URL params once; never let a preserved ?steps=… replay on silent reloads and clobber fresher Firebase data
 }
 
 // ---- view model --------------------------------------------------------
 const day = store.days[key] || {};
 // gym count for a week = entries in the append-only log that fall in that week (the dashboard owns the week logic),
 // reconciled with the legacy gymWeek counter so older data / paste-tests still show.
-function gymCountForWeek(wk){ let n=0; for(const id in store.gymLog){ const ts=store.gymLog[id]; if(ts && weekId(new Date(ts))===wk) n++; }
-  const legacy=(store.gymWeek && store.gymWeek.week===wk) ? (+store.gymWeek.count||0) : 0; return Math.max(n, legacy); }
+function gymCountForWeek(wk){ let n=0; for(const id in store.gymLog){ const ts=store.gymLog[id];   // only well-formed gym_* entries → immune to probes/junk in the log
+    if(typeof ts==='string' && id.indexOf('gym_')===0){ const d=new Date(ts); if(!isNaN(d) && weekId(d)===wk) n++; } }
+  if(n>0) return n;   // log is the source of truth; fall back to the legacy counter only for weeks with no log entries
+  return (store.gymWeek && store.gymWeek.week===wk) ? (+store.gymWeek.count||0) : (+(store.gymWeeks||{})[wk]||0); }
 const gym = gymCountForWeek(weekId(now));
 const steps = num(day.steps), dist = num(day.dist), sleep = day.sleep||0, walkDone = !!day.walk;
 function walkStreak(){ let n=0; const d=new Date(now);
@@ -758,33 +761,37 @@ function applyRemote(remote){
   if(!remote || typeof remote!=='object') return;
   try{
     const L=store;
-    const merged=Object.assign({}, L, remote);
-    merged.updated    = Number(remote.updated)||L.updated;                      // normalise to epoch-ms (for the staleness banner only)
-    merged.days       = Object.assign({}, L.days||{}, remote.days||{});         // remote days win per-day; local-only days kept
-    merged.gymWeeks   = Object.assign({}, remote.gymWeeks||{}, L.gymWeeks||{}); // union of week history
-    merged.gymLog     = remote.gymLog!=null ? Object.assign({}, remote.gymLog) : (L.gymLog||{});  // remote authoritative for the session log (undo/deletes propagate)
-    merged.celebrated = L.celebrated||remote.celebrated||{};                    // never replay celebrations
-    merged.gymManual  = L.gymManual||{};                                        // dashboard-only UI memory
-    if(stable(merged)===stable(L)) return;   // nothing actually changed → no reload (loop-safe even right after a reload; does NOT depend on `updated`)
+    const cday=d=>{ if(!d||typeof d!=='object') return d; const o=Object.assign({},d);   // coerce remote types so number/string drift can't cause perpetual reloads
+      if(o.steps!=null)o.steps=num(o.steps); if(o.dist!=null)o.dist=num(o.dist); if(o.sleep!=null)o.sleep=num(o.sleep); if(o.walk!=null)o.walk=!!o.walk; return o; };
+    const rdays={}, src=remote.days||{}; for(const k in src) rdays[k]=cday(src[k]);
+    const merged=Object.assign({}, L);                              // start from local; adopt only an allowlist of remote keys so a stray top-level key (e.g. _gymArrived, a probe) can't trigger a reload storm
+    merged.days     = Object.assign({}, L.days||{}, rdays);          // remote days win per-day; local-only days kept
+    merged.gymWeeks = Object.assign({}, remote.gymWeeks||{}, L.gymWeeks||{});
+    merged.gymLog   = remote.gymLog!=null ? Object.assign({}, remote.gymLog) : (L.gymLog||{});  // remote-authoritative session log (undo/deletes propagate)
+    if(remote.gymWeek!=null) merged.gymWeek = remote.gymWeek;
+    merged.updated  = Number(remote.updated)||L.updated;             // banner freshness only
+    merged.celebrated = L.celebrated||remote.celebrated||{};         // never replay celebrations
+    const gm=Object.assign({}, L.gymManual||{}); for(const id in (merged.gymLog||{})) if(id.indexOf('gym_')===0 && merged.gymLog[id]) gm[id.slice(4)]=true; merged.gymManual=gm;  // derive "logged today" from the log → correct on any device
+    const sig=o=>{ const c=Object.assign({},o); delete c.updated; delete c.gymManual; return stable(c); };  // a reload is warranted only by a visible change, not by `updated`/derived state
+    if(sig(merged)===sig(L)){ if(Number(merged.updated)!==Number(L.updated)){ try{ localStorage.setItem('stride', JSON.stringify(merged)); }catch(e){} } return; }
     localStorage.setItem('stride', JSON.stringify(merged));
   }catch(e){ return; }
-  sessionStorage.setItem('strideSilent','1'); location.reload();      // seamless re-render with fresh data
+  scheduleReload();
 }
-function pullFirebase(){ if(!FIREBASE_URL) return; const base=FIREBASE_URL.replace(/\/+$/,'');
-  fetch(base+'/stride.json',{cache:'no-store'}).then(r=> r.ok ? r.json() : null).then(applyRemote).catch(()=>{});
-}
-// live push via Firebase REST streaming (EventSource) — instant, only sends deltas, doesn't depend on `updated`.
-// any change to /stride fires an event; we re-read truth and apply. A slow poll is the safety net.
-function startFirebase(){ if(!FIREBASE_URL) return;
-  let streaming=false;
+let _reloadT=null;
+function scheduleReload(){ clearTimeout(_reloadT); _reloadT=setTimeout(()=>{ sessionStorage.setItem('strideSilent','1'); location.reload(); }, 3000); }  // collapse a burst of syncs into one silent reload
+function pullFirebase(){ if(!FIREBASE_URL) return; fetch(FIREBASE_URL.replace(/\/+$/,'')+'/stride.json',{cache:'no-store'}).then(r=> r.ok ? r.json() : null).then(applyRemote).catch(()=>{}); }
+// live push via Firebase REST streaming (EventSource): any change fires an event → coalesce → read truth → apply.
+// Safety net: poll only the tiny `updated` stamp and full-read on change (cheap; also covers a dropped stream).
+let _pullT=null, _fbU=null;
+function startFirebase(){ if(!FIREBASE_URL) return; const base=FIREBASE_URL.replace(/\/+$/,'');
   if(typeof EventSource!=='undefined'){ try{
-    const es=new EventSource(FIREBASE_URL.replace(/\/+$/,'')+'/stride.json');
-    const onEv=()=>pullFirebase();
+    const es=new EventSource(base+'/stride.json');
+    const onEv=()=>{ clearTimeout(_pullT); _pullT=setTimeout(pullFirebase, 500); };   // browser auto-reconnects on transient errors
     es.addEventListener('put', onEv); es.addEventListener('patch', onEv);
-    streaming=true;
-  }catch(e){ streaming=false; } }
-  pullFirebase();                                              // initial pull
-  setInterval(pullFirebase, streaming?300000:60000);          // safety net: 5 min if streaming works, else 60 s
+  }catch(e){} }
+  pullFirebase();
+  setInterval(()=>{ fetch(base+'/stride/updated.json',{cache:'no-store'}).then(r=> r.ok ? r.json() : null).then(u=>{ if(u==null||Number(u)===Number(_fbU)) return; _fbU=u; pullFirebase(); }).catch(()=>{}); }, 60000);
 }
 startFirebase();
 
