@@ -126,6 +126,7 @@
   .delta{font-size:13px;font-weight:500;color:var(--good)}
   .delta.down{color:var(--accent-2)}
   .note{font-size:11px;color:var(--text-faint);font-weight:500;text-transform:uppercase;letter-spacing:.05em;margin-top:8px}
+  .eased{color:var(--text-faint);font-size:11px;font-weight:500;white-space:nowrap}
 
   /* gym — segmented progress ring */
   .gym .body{display:flex;align-items:center;gap:18px}
@@ -428,6 +429,8 @@ const silent = sessionStorage.getItem('strideSilent')==='1'; sessionStorage.remo
 // silent/asleep-screen reload shows the true geometry on wake instead of animating up from empty
 function rafSet(fn){ if(silent||reduce||document.hidden) fn(); else requestAnimationFrame(fn); }
 if(silent) document.documentElement.classList.add('silent');
+// persist the store; on failure (quota/private mode) surface it instead of losing data silently
+function saveBlob(o){ try{ localStorage.setItem('stride', JSON.stringify(o)); return true; }catch(e){ try{ const s=document.getElementById('stale'); if(s){ s.textContent='Storage is full — recent data may not be saving. Free space on this device.'; s.classList.add('show'); } }catch(_){} return false; } }
 // === Paste your Firebase Realtime Database URL here to turn on always-on cross-device sync ===
 // e.g. 'https://stride-xxxx-default-rtdb.firebaseio.com'  (leave '' for local / URL-param mode)
 const FIREBASE_URL = 'https://stride-dash-c3e2a-default-rtdb.europe-west1.firebasedatabase.app';
@@ -467,7 +470,7 @@ if (p.toString().length>0){
   store.days[key] = today; store.updated = now.getTime();
   const cut=(()=>{const c=new Date(now);c.setDate(c.getDate()-1825);return todayKey(c);})(); // keep ~5y so months/years aggregates + all-time trophies persist (never resets)
   for(const d in store.days){ if(d<cut) delete store.days[d]; }
-  try{ localStorage.setItem('stride', JSON.stringify(store)); }catch(e){}
+  saveBlob(store);
   try{ history.replaceState({},'',location.pathname); }catch(e){}   // consume URL params once; never let a preserved ?steps=… replay on silent reloads and clobber fresher Firebase data
 }
 
@@ -497,13 +500,16 @@ const streak = streakGrace(), wc = weekly();
 // ---- header ------------------------------------------------------------
 
 // ---- activity: cumulative steps area toward goal -----------------------
+// rest-aware: a short night eases today's target ~20% so resting still counts as a win (honest — it's labelled, and only for today)
+const stepGoalToday = (sleep>0 && sleep < GOAL.sleep-1) ? Math.max(1000, Math.round(GOAL.steps*0.8/100)*100) : GOAL.steps;
+const stepEased = stepGoalToday < GOAL.steps;
 countUp($('steps'), steps, v=>Math.round(v).toLocaleString());
-$('stepsGoal').innerHTML = '/ '+GOAL.steps.toLocaleString() + (steps>=GOAL.steps?' <span class="crown" title="Daily goal met">👑</span>':'');
+$('stepsGoal').innerHTML = '/ '+stepGoalToday.toLocaleString() + (steps>=stepGoalToday?' <span class="crown" title="Daily goal met">👑</span>':'') + (stepEased?' <span class="eased">· eased, short sleep</span>':'');
 if(dist) countUp($('dist'), dist, v=>v.toFixed(1)); else $('dist').textContent='—';
 (function(){ const h=day.hours||[]; const cum=[]; let s=0;
   for(let x=6;x<=23;x++){ s+=num(h[x]); cum.push(s); }
-  const max=Math.max(GOAL.steps, s, 1);
-  drawArea($('actChart'), cum, max, 'actg', GOAL.steps/max);
+  const max=Math.max(stepGoalToday, s, 1);
+  drawArea($('actChart'), cum, max, 'actg', stepGoalToday/max);
 })();
 
 // ---- sleep: 7-night area + weekly delta --------------------------------
@@ -584,6 +590,11 @@ function fmtHour(h){ const ap=h<12?'am':'pm'; let x=h%12; if(x===0)x=12; return 
   const lowSleep = sleep>0 && sleep < GOAL.sleep-1;
   const weekDone = walkDone && gym>=GOAL.gym;
   const ms=[7,14,30,60,100,200,365];
+  // "normal for you": this week's avg daily steps vs the prior ~4 weeks (honest baseline, not a score)
+  const wkPace=()=>{ const el=((now.getDay()+6)%7)+1; let cur=0,curN=0,base=0,baseN=0;
+    for(let i=0;i<el;i++){ const d=new Date(now); d.setDate(d.getDate()-i); const r=store.days[todayKey(d)]; if(r&&r.steps!=null){cur+=r.steps;curN++;} }
+    for(let i=el;i<el+28;i++){ const d=new Date(now); d.setDate(d.getDate()-i); const r=store.days[todayKey(d)]; if(r&&r.steps!=null){base+=r.steps;baseN++;} }
+    if(curN<1||baseN<5) return 0; const b=base/baseN; return b>0?(cur/curN)/b:0; };
   let line;
   if(lowSleep) line=pick([
     "Rough night, by the numbers. I'd keep today gentle — a short walk's plenty.",
@@ -606,10 +617,13 @@ function fmtHour(h){ const ap=h<12?'am':'pm'; let x=h%12; if(x===0)x=12; return 
   else if(streak>=3) line=pick([
     "<b>"+streak+"-day</b> run going. Best not look down.",
     "<b>"+streak+"</b> days deep. I'm enjoying this." ]);
-  else line=pick([
-    "All quiet. I'll pipe up when it matters.",
-    "Nothing to report — not a bad thing.",
-    "Steady. I'll be here." ]);
+  else { const r=wkPace();
+    if(r>=1.12) line=pick(["Ahead of your usual pace this week. Noted.","Busier than your norm lately. I see it."]);
+    else if(r>0 && r<=0.85) line=pick(["Quieter week than your usual. Weeks vary — that's allowed.","Below your norm this week. No drama."]);
+    else line=pick([
+      "All quiet. I'll pipe up when it matters.",
+      "Nothing to report — not a bad thing.",
+      "Steady. I'll be here." ]); }
   $('status').innerHTML=line;
 })();
 
@@ -622,7 +636,7 @@ function fmtHour(h){ const ap=h<12?'am':'pm'; let x=h%12; if(x===0)x=12; return 
   const ms=[7,14,30,60,100,150,200,365];
   const fireStreak = ms.includes(streak) && c.streak !== streak;
   if(fireWalk) c.walk=key; if(fireGym) c.gym=wk; if(fireStreak) c.streak=streak;
-  if(fireWalk||fireGym||fireStreak){ try{ localStorage.setItem('stride',JSON.stringify(store)); }catch(e){} }
+  if(fireWalk||fireGym||fireStreak){ saveBlob(store); }
   if(!reduce && voice!=='off'){
     if(fireWalk) $('walkRing').classList.add('celebrate');
     if(fireGym) document.querySelector('.hero').classList.add('celebrate');
@@ -771,7 +785,7 @@ function loadWeather(force){
   // periodic safety net: roll the day even if the midnight timer was suspended, and surface the staleness banner
   setInterval(()=>{ if(!document.hidden && todayKey(new Date())!==key){ location.reload(); return; }
     if(store.updated){ const hrs=(Date.now()-store.updated)/3.6e6; const s=$('stale');
-    if(hrs>20){ s.textContent='Last synced '+Math.round(hrs)+'h ago — open the iPhone shortcut to refresh.'; s.classList.add('show'); } } }, 600000);
+    if(hrs>20){ s.textContent='Last synced '+Math.round(hrs)+'h ago — open the iPhone shortcut to refresh.'; s.classList.add('show'); } else { s.classList.remove('show'); } } }, 600000);
 })();
 
 // ---- Firebase live sync (always-on, both devices, no manual refresh) ----
@@ -795,8 +809,8 @@ function applyRemote(remote){
     merged.celebrated = L.celebrated||remote.celebrated||{};         // never replay celebrations
     const gm=Object.assign({}, L.gymManual||{}); for(const id in (merged.gymLog||{})) if(id.indexOf('gym_')===0 && merged.gymLog[id]) gm[id.slice(4)]=true; merged.gymManual=gm;  // derive "logged today" from the log → correct on any device
     const sig=o=>{ const c=Object.assign({},o); delete c.updated; delete c.gymManual; return stable(c); };  // a reload is warranted only by a visible change, not by `updated`/derived state
-    if(sig(merged)===sig(L)){ if(Number(merged.updated)!==Number(L.updated)){ try{ localStorage.setItem('stride', JSON.stringify(merged)); }catch(e){} } return; }
-    localStorage.setItem('stride', JSON.stringify(merged));
+    if(sig(merged)===sig(L)){ if(Number(merged.updated)!==Number(L.updated)){ saveBlob(merged); } return; }
+    saveBlob(merged);
   }catch(e){ return; }
   scheduleReload();
 }
@@ -1015,7 +1029,7 @@ function logGymToday(){ try{
   if(store.gymManual[dk]){ delete store.gymManual[dk]; delete store.gymLog[id]; pushGymLog(id,null); }   // undo (delete entry)
   else { store.gymManual[dk]=true; store.gymLog[id]=new Date(now).toISOString(); pushGymLog(id,store.gymLog[id]); }
   store.updated=Date.now();
-  localStorage.setItem('stride', JSON.stringify(store));
+  saveBlob(store);
   sessionStorage.setItem('strideSilent','1'); location.reload();   // recompute everything from one source of truth
 }catch(e){} }
 // write one gym-log child to Firebase (PUT a ts, or DELETE when ts is null); keepalive so it survives the reload
