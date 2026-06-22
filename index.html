@@ -181,6 +181,23 @@
     .hero{grid-column:span 6;grid-row:auto}
   }
   @media (max-width:560px){ .grid>*{grid-column:1 / -1 !important} }
+  /* iPad / large screens: fill the whole standalone window, taller cards, roomier type */
+  @media (min-width:900px){
+    html,body{height:100dvh}
+    body{display:flex; flex-direction:column; overflow:hidden}
+    header{margin-bottom:clamp(14px,1.6vw,26px)}
+    .grid{flex:1 1 auto; min-height:0; grid-template-rows:1fr 1fr}
+    :root{--pad:clamp(24px,2.5vw,40px); --gap:clamp(16px,1.6vw,26px)}
+    .card{display:flex; flex-direction:column}
+    .chart{flex:1 1 auto; height:auto; min-height:50px}              /* activity/sleep area charts grow to fill */
+    .gym .body, .walk .body{flex:1 1 auto}                            /* rings centre in the taller card */
+    .bars{flex:1 1 auto; height:auto; min-height:56px}               /* movement-clock bars grow */
+    .big{font-size:clamp(46px,5vw,74px)}
+    .status{font-size:clamp(22px,2.5vw,34px)}
+    .ctitle{font-size:clamp(16px,1.3vw,20px)}
+    .gring svg{width:124px;height:124px}
+    .gring .center .num{font-size:32px}
+  }
 
   @view-transition{ navigation:auto; }
   .card{opacity:0;transform:translateY(10px) scale(.985);filter:blur(7px);animation:rise .55s cubic-bezier(.22,.85,.3,1) forwards}
@@ -297,7 +314,6 @@
 
   <header>
     <div>
-      <div class="date" id="date">—</div>
       <div class="status" id="status">Let’s move.</div>
       <div class="wxchip" id="wxchip" hidden></div>
     </div>
@@ -479,7 +495,6 @@ function streakGrace(){ let n=0,miss=0; const d=new Date(now);
 const streak = streakGrace(), wc = weekly();
 
 // ---- header ------------------------------------------------------------
-$('date').textContent = now.toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'});
 
 // ---- activity: cumulative steps area toward goal -----------------------
 countUp($('steps'), steps, v=>Math.round(v).toLocaleString());
@@ -1172,6 +1187,12 @@ document.querySelectorAll('.card').forEach(c=>{
   c.insertAdjacentHTML('afterbegin','<div class="glassfx gf-filter"></div><div class="glassfx gf-overlay"></div><div class="glassfx gf-specular"></div>');
 });
 loadWeather(); setInterval(()=>loadWeather(true), 15*60000);   // start weather now that icon()/ICONS exist (interval forces a fresh fetch)
+
+// keep the screen awake while the dashboard is open (Screen Wake Lock; iOS 16.4+). Auto-releases when hidden; re-acquire on return.
+let _wake=null;
+async function keepAwake(){ try{ if('wakeLock' in navigator && document.visibilityState==='visible' && !_wake){ _wake=await navigator.wakeLock.request('screen'); _wake.addEventListener('release',()=>{ _wake=null; }); } }catch(e){} }
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') keepAwake(); });
+keepAwake();
 // surface today's workout on the gym card (deferred so training defs exist; reusable so the schedule-shift updates it live)
 function refreshGymCard(){ try{ const k=schedule()[schedIdx()]; const togo=gym>=GOAL.gym?'week complete':(GOAL.gym-gym)+' to go this week';
   $('gymFoot').innerHTML=`Today · <b>${SESS_TITLE[k]}</b><br><span style="color:var(--text-faint);font-size:12px">${togo}</span>`; }catch(e){} }
