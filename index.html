@@ -426,6 +426,7 @@ try{ const raw=JSON.parse(localStorage.getItem('stride')||'{}'); store=(raw&&typ
 if(!store.days || typeof store.days!=='object' || Array.isArray(store.days)) store.days={};
 store.gymWeeks = (store.gymWeeks && typeof store.gymWeeks==='object') ? store.gymWeeks : {};
 store.gymManual = (store.gymManual && typeof store.gymManual==='object') ? store.gymManual : {};  // {dateKey:true} manual gym logs (fail-safe)
+store.gymLog = (store.gymLog && typeof store.gymLog==='object' && !Array.isArray(store.gymLog)) ? store.gymLog : {};  // {id: ISO ts} append-only session log — robust to offline gaps + cross-device, source of truth for gym count
 const now = new Date(); const key = todayKey(now);
 
 if (p.toString().length>0){
@@ -447,7 +448,11 @@ if (p.toString().length>0){
 
 // ---- view model --------------------------------------------------------
 const day = store.days[key] || {};
-const gym = (store.gymWeek && store.gymWeek.week===weekId(now)) ? store.gymWeek.count : 0;
+// gym count for a week = entries in the append-only log that fall in that week (the dashboard owns the week logic),
+// reconciled with the legacy gymWeek counter so older data / paste-tests still show.
+function gymCountForWeek(wk){ let n=0; for(const id in store.gymLog){ const ts=store.gymLog[id]; if(ts && weekId(new Date(ts))===wk) n++; }
+  const legacy=(store.gymWeek && store.gymWeek.week===wk) ? (+store.gymWeek.count||0) : 0; return Math.max(n, legacy); }
+const gym = gymCountForWeek(weekId(now));
 const steps = num(day.steps), dist = num(day.dist), sleep = day.sleep||0, walkDone = !!day.walk;
 function walkStreak(){ let n=0; const d=new Date(now);
   if(!store.days[todayKey(d)] || !store.days[todayKey(d)].walk) d.setDate(d.getDate()-1);
@@ -739,25 +744,17 @@ function loadWeather(){
 
 // ---- Firebase live sync (always-on, both devices, no manual refresh) ----
 function applyRemote(remote){
-  if(!remote || typeof remote!=='object' || !remote.updated) return;  // only act on stamped writes (avoids empty-DB loops)
-  if(remote.updated===store.updated) return;                          // nothing new since last paint
+  if(!remote || typeof remote!=='object' || remote.updated==null) return;  // only act on stamped writes (avoids empty-DB loops)
+  if(Number(remote.updated)===Number(store.updated)) return;               // nothing new (coerce: phone/app may stamp number or numeric string)
   try{
     const L=store;
     const merged=Object.assign({}, L, remote);
+    merged.updated    = Number(remote.updated)||L.updated;                      // normalise to epoch-ms so freshness compares cleanly
     merged.days       = Object.assign({}, L.days||{}, remote.days||{});         // remote days win per-day; local-only days kept
     merged.gymWeeks   = Object.assign({}, remote.gymWeeks||{}, L.gymWeeks||{}); // union of week history
+    merged.gymLog     = remote.gymLog ? Object.assign({}, remote.gymLog) : (L.gymLog||{});  // remote authoritative for the session log (so deletes/undo propagate)
     merged.celebrated = L.celebrated||remote.celebrated||{};                    // never replay celebrations
-    merged.gymManual  = L.gymManual||{};                                        // dashboard-only manual-log memory
-    const wk=weekId(new Date());
-    const lc=(L.gymWeek&&L.gymWeek.week===wk)?(+L.gymWeek.count||0):0;
-    const rc=(remote.gymWeek&&remote.gymWeek.week===wk)?(+remote.gymWeek.count||0):0;
-    if(lc||rc) merged.gymWeek={week:wk,count:Math.max(lc,rc)};                  // a local manual bump is never lost to a stale remote
-    // gymBump: a one-shot session token the phone writes on a qualifying gym visit.
-    // The app owns the week logic, so the phone shortcut needs no date math — just write a new token.
-    if(remote.gymBump && remote.gymBump!==L.gymBump){
-      const c=(merged.gymWeek&&merged.gymWeek.week===wk)?(+merged.gymWeek.count||0):0;
-      merged.gymWeek={week:wk,count:c+1}; merged.gymBump=remote.gymBump;        // consume so it counts exactly once
-    }
+    merged.gymManual  = L.gymManual||{};                                        // dashboard-only UI memory
     localStorage.setItem('stride', JSON.stringify(merged));
   }catch(e){ return; }
   sessionStorage.setItem('strideSilent','1'); location.reload();      // seamless re-render with fresh data
@@ -944,10 +941,10 @@ const NOVEL_L=['Bulgarian split squat (DB)','Tempo hack squat (3s down)','Single
 function wpick(arr,salt){ const block=Math.floor(Date.now()/(42*864e5)); const s=block+salt; let h=0; for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))>>>0; return arr[h%arr.length]; }
 const X=(name,sets,reps,rir,rest)=>({name,sets,reps,rir,rest});
 function session(key){ switch(key){
-  case 'UA': return [X('Barbell bench press',3,'6–8','2','2–3m'),X('Weighted pull-up',3,'6–9','2','2–3m'),X('Seated row machine',3,'8–12','1–2','90s'),X('Shoulder press machine',2,'8–12','1–2','90s'),X('Side-lateral raise',2,'12–20','1','60s'),X('Biceps curl',2,'10–15','1','60s'),X('Triceps extension',2,'10–15','1','60s')];
-  case 'LA': return [X('Hack squat',3,'6–9','2','2–3m'),X('Leg press',3,'8–12','1–2','2m'),X('Leg extension',2,'12–15','1','90s'),X('Hamstring curl',2,'10–12','1','90s'),X('Weighted-sack walking lunges',2,'10–12/leg','1–2','90s'),X('Calf raise (full ROM)',2,'12–18','1','75s')];
-  case 'UB': return [X('Incline chest press machine',3,'8–10','2','2–3m'),X('Weighted pull-up',3,'6–9','2','2–3m'),X('Chest-supported DB row (incline)',3,'8–12','1–2','90s'),X('Shoulder press machine',2,'10–12','1','90s'),X('Rear-delt raise',2,'12–20','1','60s'),X('Side-lateral raise',2,'12–20','1','60s'),X('Biceps curl',2,'10–15','1','60s')];
-  case 'LB': return [X('Pendulum squat',3,'8–10','2','2–3m'),X('Hamstring curl',3,'8–12','2','90s'),X('Leg press',2,'10–12','1–2','2m'),X('Leg extension',2,'12–15','1','90s'),X('Weighted-sack walking lunges',2,'10–12/leg','1–2','90s'),X('Calf raise (full ROM)',2,'12–18','1','75s')];
+  case 'UA': return [X('Barbell bench press',3,'6–8','2','2–3m'),X('Weighted pull-up',3,'6–9','2','2–3m'),X('Seated row machine',2,'8–12','1–2','90s'),X('Shoulder press machine',2,'8–12','1–2','90s'),X('Side-lateral raise',2,'12–20','1','60s'),X('Biceps curl',2,'10–15','1','60s'),X('Triceps extension',3,'10–15','1','60s')];
+  case 'LA': return [X('Hack squat',3,'6–9','2','2–3m'),X('Leg press',2,'8–12','1–2','2m'),X('Leg extension',2,'12–15','1','90s'),X('Hamstring curl',2,'10–12','1','90s'),X('Weighted-sack walking lunges',2,'10–12/leg','1–2','90s'),X('Calf raise (full ROM)',3,'12–18','1','75s')];
+  case 'UB': return [X('Incline chest press machine',3,'8–10','2','2–3m'),X('Weighted pull-up',3,'6–9','2','2–3m'),X('Chest-supported DB row (incline)',2,'8–12','1–2','90s'),X('Shoulder press machine',2,'10–12','1','90s'),X('Rear-delt raise',2,'12–20','1','60s'),X('Side-lateral raise',2,'12–20','1','60s'),X('Biceps curl',2,'10–15','1','60s'),X('Triceps extension',2,'10–15','1','60s')];
+  case 'LB': return [X('Pendulum squat',3,'8–10','2','2–3m'),X('Hamstring curl',3,'8–12','2','90s'),X('Leg press',2,'10–12','1–2','2m'),X('Weighted-sack walking lunges',2,'10–12/leg','1–2','90s'),X('Calf raise (full ROM)',3,'12–18','1','75s')];
   case 'UC': return [X('Weighted pull-up',2,'8–12','1','2m'),X('Chest press / fly',2,'10–15','1','90s'),X('Side-lateral raise',2,'12–20','1','60s'),X('Rear-delt raise',2,'12–20','1','60s'),X('Biceps curl',2,'10–15','1','60s'),X('Triceps extension',2,'10–15','1','60s')];
   default: return null; } }
 const SESS_TITLE={UA:'Upper A',LA:'Lower A',UB:'Upper B',LB:'Lower B',UC:'Upper C',cardio:'Cardio',rest:'Rest'};
@@ -962,17 +959,17 @@ function schedIdx(date){ return ((((date||new Date()).getDay()+6)%7) - schedShif
 function logGymToday(){ try{
   const wk=weekId(now), dk=todayKey(now);
   if(!store.gymWeek || store.gymWeek.week!==wk){ if(store.gymWeek) store.gymWeeks[store.gymWeek.week]=store.gymWeek.count; store.gymWeek={week:wk,count:0}; }
-  if(store.gymManual[dk]){ delete store.gymManual[dk]; store.gymWeek.count=Math.max(0,(store.gymWeek.count||0)-1); }
-  else { store.gymManual[dk]=true; store.gymWeek.count=(store.gymWeek.count||0)+1; }
+  const id='gym_'+dk;   // deterministic per-day id → idempotent + clean toggle
+  if(store.gymManual[dk]){ delete store.gymManual[dk]; delete store.gymLog[id]; pushGymLog(id,null); }   // undo (delete entry)
+  else { store.gymManual[dk]=true; store.gymLog[id]=new Date(now).toISOString(); pushGymLog(id,store.gymLog[id]); }
   store.updated=Date.now();
   localStorage.setItem('stride', JSON.stringify(store));
-  pushGym();   // propagate to Firebase (if configured) so the count shows on every device
   sessionStorage.setItem('strideSilent','1'); location.reload();   // recompute everything from one source of truth
 }catch(e){} }
-// push the weekly gym count to Firebase; keepalive so it survives the reload
-function pushGym(){ if(!FIREBASE_URL) return; try{
+// write one gym-log child to Firebase (PUT a ts, or DELETE when ts is null); keepalive so it survives the reload
+function pushGymLog(id, ts){ if(!FIREBASE_URL) return; try{
   const base=FIREBASE_URL.replace(/\/+$/,''); const auth=FIREBASE_KEY?('?auth='+encodeURIComponent(FIREBASE_KEY)):'';
-  fetch(base+'/stride/gymWeek.json'+auth,{method:'PUT',keepalive:true,body:JSON.stringify(store.gymWeek)}).catch(()=>{});
+  fetch(base+'/stride/gymLog/'+id+'.json'+auth, ts==null?{method:'DELETE',keepalive:true}:{method:'PUT',keepalive:true,body:JSON.stringify(ts)}).catch(()=>{});
   fetch(base+'/stride/updated.json'+auth,{method:'PUT',keepalive:true,body:JSON.stringify(store.updated)}).catch(()=>{});
 }catch(e){} }
 function renderSession(key,easy,deload,sleepLow){ const base=session(key); if(!base) return '';
@@ -1050,7 +1047,7 @@ const RENDER={
       +`<button class="ovtab${deload?' on':''}" id="deload-toggle">${deload?'✓ Deload week':'Deload this week'}</button>`
       +`</div>`;
     h+='<div class="ovrow" style="margin-top:18px"><span>This week</span></div>'+weekStrip()+stretchBlock();
-    const wkk=weekId(new Date()); const cur=(store.gymWeek&&store.gymWeek.week===wkk)?store.gymWeek.count:0;
+    const wkk=weekId(new Date()); const cur=gymCountForWeek(wkk);
     const hist=Object.entries(store.gymWeeks||{}).sort((a,b)=>a[0]<b[0]?-1:1).slice(-11);
     const all=hist.concat([[wkk,cur]]); const hits=all.filter(([,c])=>c>=GOAL.gym).length;
     h+='<div class="ovrow" style="margin-top:18px"><span>Gym history</span></div>'
@@ -1067,7 +1064,7 @@ const RENDER={
     return ovbars(avg.map((v,i)=>({v,lbl:i%6===0?fmtH(i):''})))
       +`<div class="ovstats">${stat(dys,'days learned')}${stat(ranked.length?ranked.map(fmtH).join('  '):'—','top windows')}</div>`; },
   hero(){ const wkk=weekId(new Date()); const w=weeklyNow();
-    const gymc=(store.gymWeek&&store.gymWeek.week===wkk)?store.gymWeek.count:0;
+    const gymc=gymCountForWeek(wkk);
     let s7=0,d7=0; for(let i=0;i<w.elapsed;i++){ const d=new Date(); d.setDate(d.getDate()-i); const r=store.days[todayKey(d)]; if(r&&r.steps!=null){s7+=r.steps;d7++;} }
     const gP=Math.min(1,gymc/GOAL.gym), wP=w.elapsed?w.done/w.elapsed:0, sP=d7?Math.min(1,(s7/d7)/GOAL.steps):0;
     const score=Math.round(100*(0.4*gP+0.4*wP+0.2*sP));
