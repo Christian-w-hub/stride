@@ -59,17 +59,16 @@
   .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:var(--gap)}
   .card{
     background:var(--glass);
-    background:linear-gradient(160deg, rgba(8,9,12,.55), rgba(8,9,12,.47) 100%), linear-gradient(165deg, rgba(255,255,255,.045), rgba(255,255,255,.02));
-    backdrop-filter:blur(30px) saturate(108%) brightness(.80); -webkit-backdrop-filter:blur(30px) saturate(108%) brightness(.80);
+    background:linear-gradient(160deg, rgba(8,9,12,.30), rgba(8,9,12,.04) 55%), linear-gradient(165deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+    backdrop-filter:blur(28px) saturate(145%) brightness(.98); -webkit-backdrop-filter:blur(28px) saturate(145%) brightness(.98);
     border:1px solid var(--glass-line); border-radius:var(--r-card); padding:var(--pad); position:relative; overflow:hidden;
-    text-shadow:0 1px 2px rgba(0,0,0,.4);
-    box-shadow:inset 0 1px 0 var(--inset), 0 24px 60px -30px rgba(0,0,0,.92);
-    box-shadow:inset 0 1.5px 0 rgba(255,255,255,.16), inset 0 0 0 1px rgba(255,255,255,.04), 0 24px 60px -30px rgba(0,0,0,.92);
+    text-shadow:0 1px 2px rgba(0,0,0,.55), 0 0 10px rgba(0,0,0,.30);
+    box-shadow:inset 0 1.5px 0 rgba(255,255,255,.18), inset 0 0 0 1px rgba(255,255,255,.05), 0 24px 60px -30px rgba(0,0,0,.92);
   }
   .chead{display:flex;align-items:center;gap:11px;margin-bottom:14px}
   .chip{width:36px;height:36px;border-radius:var(--r-chip);display:grid;place-items:center;font-size:17px;border:1px solid var(--glass-line);
-    background:linear-gradient(150deg, color-mix(in srgb,var(--ca,#888) 36%, rgba(20,21,26,.9)), color-mix(in srgb,var(--cb,#555) 22%, rgba(20,21,26,.9)));
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.10)}
+    background:rgba(255,255,255,.06); color:var(--ca,#fff);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}
   .ctitle{font-size:15px;font-weight:500}
   .chead .tag{margin-left:auto}
 
@@ -124,7 +123,7 @@
   .week{display:flex;gap:7px;margin-left:auto;text-align:center}
   .week .d{display:flex;flex-direction:column;align-items:center;gap:6px}
   .week .dot{width:11px;height:11px;border-radius:50%;background:rgba(255,255,255,.12)}
-  .week .dot.on{background:linear-gradient(150deg,var(--ca),var(--cb))}
+  .week .dot.on{background:linear-gradient(150deg,var(--viz),var(--viz2))}
   .week .dot.today{outline:2px solid rgba(255,255,255,.5);outline-offset:2px}
   .week .dl{font-size:10px;color:var(--text-faint);text-transform:uppercase;font-weight:400}
   .walk .streak{display:flex;flex-direction:column;align-items:flex-start}
@@ -134,7 +133,7 @@
   /* movement clock */
   .bars{display:flex;align-items:flex-end;gap:4px;height:56px;margin-bottom:6px}
   .bars > span{flex:1;background:rgba(255,255,255,.12);border-radius:var(--r-el) var(--r-el) 0 0;min-height:2px;transition:height .65s cubic-bezier(.34,1.25,.64,1)}
-  .bars > span.peak{background:linear-gradient(180deg,var(--cb),var(--ca))}
+  .bars > span.peak{background:linear-gradient(180deg,var(--viz2),var(--viz))}
   .bars > span.now{outline:2px solid rgba(255,255,255,.45);outline-offset:1px}
   .axis{display:flex;justify-content:space-between;font-size:11px;color:var(--text-faint);font-weight:400;margin-bottom:12px}
   .clock .foot{color:var(--text-dim);font-size:14px;font-weight:400}
@@ -192,12 +191,12 @@
   .ovstat .l{font-size:11px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.07em;margin-top:4px}
   .ovbars{display:flex;align-items:flex-end;gap:5px;height:130px;margin-top:4px}
   .ovbars .b{flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;justify-content:flex-end;height:100%}
-  .ovbars .bar{width:100%;border-radius:5px 5px 0 0;background:linear-gradient(180deg,var(--cb),var(--ca));min-height:2px}
+  .ovbars .bar{width:100%;border-radius:5px 5px 0 0;background:linear-gradient(180deg,var(--viz2),var(--viz));min-height:2px}
   .ovbars .bar.dim{background:rgba(255,255,255,.13)}
   .ovbars .bl{font-size:10px;color:var(--text-faint);height:12px}
   .heat{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,1fr);gap:5px;margin-top:6px;justify-content:start}
   .heat .c{width:15px;height:15px;border-radius:4px;background:rgba(255,255,255,.10)}
-  .heat .c.on{background:linear-gradient(150deg,var(--ca),var(--cb))}
+  .heat .c.on{background:linear-gradient(150deg,var(--viz),var(--viz2))}
   .ovrow{display:flex;justify-content:space-between;align-items:center;font-size:14px;color:var(--text-dim)}
   .ovrow b{color:var(--text);font-weight:500}
   .compbar{height:9px;border-radius:5px;background:rgba(255,255,255,.12);overflow:hidden;margin:7px 0 16px}
@@ -267,7 +266,7 @@
   <main class="grid">
     <!-- ACTIVITY -->
     <section class="card activity">
-      <div class="chead"><div class="chip">🏃</div><div class="ctitle">Activity</div><div class="tag">Today</div></div>
+      <div class="chead"><div class="chip" data-ic="activity"></div><div class="ctitle">Activity</div><div class="tag">Today</div></div>
       <div class="row"><span class="num big" id="steps">0</span><span class="unit" id="stepsGoal">/ 8,000</span></div>
       <svg class="chart" id="actChart" viewBox="0 0 100 50" preserveAspectRatio="none" aria-hidden="true"></svg>
       <div class="dist">Distance <b id="dist">—</b> km</div>
@@ -275,7 +274,7 @@
 
     <!-- SLEEP -->
     <section class="card sleep">
-      <div class="chead"><div class="chip">🌙</div><div class="ctitle">Sleep</div><div class="tag">Last 7 nights</div></div>
+      <div class="chead"><div class="chip" data-ic="moon"></div><div class="ctitle">Sleep</div><div class="tag">Last 7 nights</div></div>
       <div class="row"><span class="num big" id="sleepH">—</span><span class="unit">h</span><span class="num" id="sleepM" style="font-size:22px;color:var(--text-dim)"></span><span class="delta" id="sleepDelta" style="margin-left:auto"></span></div>
       <svg class="chart" id="sleepChart" viewBox="0 0 100 50" preserveAspectRatio="none" aria-hidden="true"></svg>
       <div class="note">Estimated · charging + do not disturb</div>
@@ -283,7 +282,7 @@
 
     <!-- GYM -->
     <section class="card gym">
-      <div class="chead"><div class="chip">🏋️</div><div class="ctitle">Gym</div><div class="tag">This week</div></div>
+      <div class="chead"><div class="chip" data-ic="dumbbell"></div><div class="ctitle">Gym</div><div class="tag">This week</div></div>
       <div class="body">
         <div class="gring">
           <svg width="104" height="104" viewBox="0 0 104 104" aria-hidden="true">
@@ -291,7 +290,7 @@
             <circle id="gymArc" cx="52" cy="52" r="44" fill="none" stroke="url(#gymg)" stroke-width="7" stroke-linecap="round"
                     transform="rotate(-90 52 52)" pathLength="100" stroke-dasharray="0 100" style="transition:stroke-dasharray .8s cubic-bezier(.2,.8,.3,1)"/>
             <g id="gymTicks"></g>
-            <defs><linearGradient id="gymg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--c-gym)"/><stop offset="1" stop-color="var(--c-gym2)"/></linearGradient></defs>
+            <defs><linearGradient id="gymg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--viz)"/><stop offset="1" stop-color="var(--viz2)"/></linearGradient></defs>
           </svg>
           <div class="center"><div class="num"><span id="gym">0</span><span class="sub">/<span id="gymGoal">5</span></span></div></div>
         </div>
@@ -323,14 +322,14 @@
 
     <!-- WALK -->
     <section class="card walk">
-      <div class="chead"><div class="chip">🚶</div><div class="ctitle">Daily walk</div><div class="tag">Today</div></div>
+      <div class="chead"><div class="chip" data-ic="footprints"></div><div class="ctitle">Daily walk</div><div class="tag">Today</div></div>
       <div class="body">
         <svg class="ring" id="walkRing" width="80" height="80" viewBox="0 0 80 80" aria-hidden="true">
           <circle cx="40" cy="40" r="34" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="6"/>
           <circle id="walkArc" cx="40" cy="40" r="34" fill="none" stroke="url(#walkg)" stroke-width="6"
                   stroke-linecap="round" transform="rotate(-90 40 40)"
                   stroke-dasharray="213.6" stroke-dashoffset="213.6" style="transition:stroke-dashoffset .7s cubic-bezier(.2,.7,.2,1)"/>
-          <defs><linearGradient id="walkg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--c-walk)"/><stop offset="1" stop-color="var(--c-walk2)"/></linearGradient></defs>
+          <defs><linearGradient id="walkg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--viz)"/><stop offset="1" stop-color="var(--viz2)"/></linearGradient></defs>
         </svg>
         <div>
           <div class="state" id="walkState">Open</div>
@@ -343,7 +342,7 @@
 
     <!-- MOVEMENT CLOCK -->
     <section class="card clock">
-      <div class="chead"><div class="chip">⏱️</div><div class="ctitle">Movement clock</div><div class="tag">Your rhythm</div></div>
+      <div class="chead"><div class="chip" data-ic="clock"></div><div class="ctitle">Movement clock</div><div class="tag">Your rhythm</div></div>
       <div class="bars" id="clockBars"></div>
       <div class="axis"><span>6am</span><span>noon</span><span>6pm</span><span>11pm</span></div>
       <div class="foot" id="clockInsight">—</div>
@@ -633,11 +632,11 @@ function drawArea(svg, vals, max, gid, goalFrac, dots){
   // dots as TRUE circles despite the non-uniform viewBox stretch (counter-scale X)
   const box=svg.getBoundingClientRect(); const sx=box.width?box.width/W:1, sy=box.height?box.height/H:1; const k=sx?(sy/sx):1;
   const dotg=(cx,cy,r,fill)=>`<g transform="translate(${cx.toFixed(2)} ${cy.toFixed(2)}) scale(${k.toFixed(4)} 1)"><circle r="${r}" fill="${fill}"/></g>`;
-  const pts = dots ? vals.map((v,i)=> v>0? dotg(xs(i),ys(v), i===vals.length-1?2.4:1.5, i===vals.length-1?'var(--cb)':'rgba(255,255,255,.7)'):'').join('') : '';
+  const pts = dots ? vals.map((v,i)=> v>0? dotg(xs(i),ys(v), i===vals.length-1?2.4:1.5, i===vals.length-1?'var(--viz2)':'rgba(255,255,255,.7)'):'').join('') : '';
   svg.innerHTML =
-    `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--ca)" stop-opacity=".45"/><stop offset="1" stop-color="var(--ca)" stop-opacity="0"/></linearGradient></defs>`
+    `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--viz)" stop-opacity=".45"/><stop offset="1" stop-color="var(--viz)" stop-opacity="0"/></linearGradient></defs>`
     + (area?`<path d="${area}" fill="url(#${gid})"/>`:'') + goal
-    + (line?`<path d="${line}" fill="none" stroke="var(--cb)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`:'')
+    + (line?`<path d="${line}" fill="none" stroke="var(--viz2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`:'')
     + pts;
 }
 
@@ -654,13 +653,14 @@ const ICONS={
 };
 const icon=(n,sz)=>`<svg viewBox="0 0 24 24" width="${sz||20}" height="${sz||20}" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${ICONS[n]||''}</svg>`;
 const ICON_OF={activity:'activity',sleep:'moon',gym:'dumbbell',hero:'gauge',walk:'footprints',clock:'clock'};
+document.querySelectorAll('.chip[data-ic]').forEach(el=>el.innerHTML=icon(el.dataset.ic));
 const DOW=['M','T','W','T','F','S','S'];
 const dl = d => DOW[(d.getDay()+6)%7];
 const fmtH = h => { const ap=h<12?'a':'p'; let x=h%12; if(x===0)x=12; return x+ap; };
 function fmtHrs(x){ if(!x) return '—'; const m=Math.round(x*60); return Math.floor(m/60)+'h '+String(m%60).padStart(2,'0'); }
 function ld(nn){ const out=[]; for(let i=nn-1;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); const k=todayKey(d); out.push({d,k,r:store.days[k]||{}}); } return out; }
 function ovbars(items){ const max=Math.max(...items.map(x=>x.v),1);
-  return '<div class="ovbars">'+items.map(x=>`<div class="b"><div class="bar${x.v?'':' dim'}" style="height:${x.v?Math.max(3,Math.round(x.v/max*100)):2}%;${x.hi?'box-shadow:0 0 0 2px var(--cb),0 0 12px var(--ca);':''}"></div><div class="bl">${x.lbl||''}</div></div>`).join('')+'</div>'; }
+  return '<div class="ovbars">'+items.map(x=>`<div class="b"><div class="bar${x.v?'':' dim'}" style="height:${x.v?Math.max(3,Math.round(x.v/max*100)):2}%;${x.hi?'box-shadow:0 0 0 2px var(--viz2),0 0 12px var(--viz);':''}"></div><div class="bl">${x.lbl||''}</div></div>`).join('')+'</div>'; }
 const stat=(n,l)=>`<div class="ovstat"><div class="n">${n}</div><div class="l">${l}</div></div>`;
 function longestStreak(){ const keys=Object.keys(store.days).filter(k=>store.days[k].walk).sort();
   let best=0,run=0,prev=null; keys.forEach(k=>{ if(prev){ const diff=Math.round((new Date(k+'T00:00')-new Date(prev+'T00:00'))/86400000); run=diff===1?run+1:1; } else run=1; prev=k; if(run>best)best=run; }); return best; }
@@ -789,11 +789,11 @@ const NOVEL_L=['Bulgarian split squat (DB)','Tempo hack squat (3s down)','Single
 function wpick(arr,salt){ const block=Math.floor(Date.now()/(42*864e5)); const s=block+salt; let h=0; for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))>>>0; return arr[h%arr.length]; }
 const X=(name,sets,reps,rir,rest)=>({name,sets,reps,rir,rest});
 function session(key){ switch(key){
-  case 'UA': return [X('Barbell bench press',3,'6–8','2','2–3m'),X('Weighted pull-up',3,'6–9','2','2–3m'),X('Seated row machine',3,'8–12','1–2','90s'),X('Shoulder press machine',2,'8–12','1–2','90s'),X(wpick(POOL.lateral,'UAl'),2,'12–20','1','60s'),X(wpick(POOL.biceps,'UAb'),2,'10–15','1','60s'),X(wpick(POOL.triceps,'UAt'),2,'10–15','1','60s')];
-  case 'LA': return [X('Hack squat',3,'6–9','2','2–3m'),X('Leg press (deep)',3,'8–12','1–2','2m'),X('Leg extension',2,'12–15','1','90s'),X('Seated leg curl',2,'10–12','1','90s'),X('Weighted-sack walking lunges',2,'10–12/leg','1–2','90s'),X(wpick(POOL.calves,'LAc'),2,'12–18','1','75s')];
-  case 'UB': return [X('Incline chest press machine',3,'8–10','2','2–3m'),X('Weighted pull-up',3,'6–9','2','2–3m'),X('Chest-supported DB row (incline)',3,'8–12','1–2','90s'),X('Shoulder press machine',2,'10–12','1','90s'),X(wpick(POOL.rear,'UBr'),2,'12–20','1','60s'),X(wpick(POOL.lateral,'UBl'),2,'12–20','1','60s'),X(wpick(POOL.biceps,'UBb'),2,'10–15','1','60s')];
-  case 'LB': return [X('Pendulum squat',3,'8–10','2','2–3m'),X(wpick(POOL.hamcurl,'LBh'),3,'8–12','2','90s'),X('Leg press (glute bias)',2,'10–12','1–2','2m'),X('Leg extension',2,'12–15','1','90s'),X('Weighted-sack walking lunges',2,'10–12/leg','1–2','90s'),X(wpick(POOL.calves,'LBc'),2,'12–18','1','75s')];
-  case 'UC': return [X('Weighted pull-up',2,'8–12','1','2m'),X(wpick(POOL.chestiso,'UCc'),2,'10–15','1','90s'),X(wpick(POOL.lateral,'UCl'),2,'12–20','1','60s'),X(wpick(POOL.rear,'UCr'),2,'12–20','1','60s'),X(wpick(POOL.biceps,'UCb'),2,'10–15','1','60s'),X(wpick(POOL.triceps,'UCt'),2,'10–15','1','60s')];
+  case 'UA': return [X('Barbell bench press',3,'6–8','2','2–3m'),X('Weighted pull-up',3,'6–9','2','2–3m'),X('Seated row machine',3,'8–12','1–2','90s'),X('Shoulder press machine',2,'8–12','1–2','90s'),X('Side-lateral raise',2,'12–20','1','60s'),X('Biceps curl',2,'10–15','1','60s'),X('Triceps extension',2,'10–15','1','60s')];
+  case 'LA': return [X('Hack squat',3,'6–9','2','2–3m'),X('Leg press',3,'8–12','1–2','2m'),X('Leg extension',2,'12–15','1','90s'),X('Hamstring curl',2,'10–12','1','90s'),X('Weighted-sack walking lunges',2,'10–12/leg','1–2','90s'),X('Calf raise (full ROM)',2,'12–18','1','75s')];
+  case 'UB': return [X('Incline chest press machine',3,'8–10','2','2–3m'),X('Weighted pull-up',3,'6–9','2','2–3m'),X('Chest-supported DB row (incline)',3,'8–12','1–2','90s'),X('Shoulder press machine',2,'10–12','1','90s'),X('Rear-delt raise',2,'12–20','1','60s'),X('Side-lateral raise',2,'12–20','1','60s'),X('Biceps curl',2,'10–15','1','60s')];
+  case 'LB': return [X('Pendulum squat',3,'8–10','2','2–3m'),X('Hamstring curl',3,'8–12','2','90s'),X('Leg press',2,'10–12','1–2','2m'),X('Leg extension',2,'12–15','1','90s'),X('Weighted-sack walking lunges',2,'10–12/leg','1–2','90s'),X('Calf raise (full ROM)',2,'12–18','1','75s')];
+  case 'UC': return [X('Weighted pull-up',2,'8–12','1','2m'),X('Chest press / fly',2,'10–15','1','90s'),X('Side-lateral raise',2,'12–20','1','60s'),X('Rear-delt raise',2,'12–20','1','60s'),X('Biceps curl',2,'10–15','1','60s'),X('Triceps extension',2,'10–15','1','60s')];
   default: return null; } }
 const SESS_TITLE={UA:'Upper A',LA:'Lower A',UB:'Upper B',LB:'Lower B',UC:'Upper C',cardio:'Cardio',rest:'Rest'};
 const SCHED4=['UA','LA','cardio','UB','LB','cardio','rest'];
