@@ -29,7 +29,7 @@
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
-  html{overscroll-behavior:none}   /* no rubber-band bounce in the standalone full-screen app */
+  html{overscroll-behavior:none; background:#0c0d10}   /* no rubber-band bounce; dark base so nothing flashes behind the sky */
   body{
     font-family:var(--font); font-weight:400; color:var(--text); font-variant-numeric:tabular-nums;
     -webkit-font-smoothing:antialiased; min-height:100%; background:#0c0d10;
@@ -935,7 +935,10 @@ const TROPHIES=[
   // stretching (evening habit)
   {e:'🧘',t:'First stretch',test:h=>h.stretchDays>=1},
   {e:'🤸',t:'10 stretches',test:h=>h.stretchDays>=10},
-  {e:'🪷',t:'50 stretches',test:h=>h.stretchDays>=50}
+  {e:'🔥',t:'7-night stretch streak',test:h=>h.stretchStreak>=7},
+  {e:'🪷',t:'50 stretches',test:h=>h.stretchDays>=50},
+  {e:'🧎',t:'30-night stretch streak',test:h=>h.stretchStreak>=30},
+  {e:'🕉️',t:'100 stretches',test:h=>h.stretchDays>=100}
 ];
 function historyStats(){ const ks=Object.keys(store.days);
   let walkDays=0,bestSteps=0,totalSteps=0,totalKmv=0,nightsTarget=0,restedReady=0,dawnDays=0,winterWalks=0; const seasons={};
@@ -947,7 +950,7 @@ function historyStats(){ const ks=Object.keys(store.days);
   const wk={}; ks.forEach(k=>{ const w=weekId(new Date(k+'T00:00')); wk[w]=(wk[w]||0)+num(store.days[k].steps); });
   const gyms=Object.values(store.gymWeeks||{}).map(Number); if(store.gymWeek) gyms.push(num(store.gymWeek.count));
   return {walkDays,bestSteps,totalSteps,totalKm:Math.round(totalKmv),nightsTarget,restedReady,dawnDays,winterWalks,seasons:Object.keys(seasons).length,
-    stretchDays:Object.keys(stretchData.dates||{}).length,
+    stretchDays:Object.keys(stretchData.dates||{}).length, stretchStreak:longestStretchStreak(),
     totalGym:gyms.reduce((a,b)=>a+b,0),bestStreak:longestStreakGrace(),bestWeekSteps:Math.max(0,...Object.values(wk)),bestGymWeek:Math.max(0,...gyms),gymGoalWeeks:gyms.filter(c=>c>=GOAL.gym).length}; }
 function trophyShelf(){ const h=historyStats(); const got=TROPHIES.filter(t=>t.test(h)).length;
   const rank=rankOf(got);
@@ -1055,6 +1058,8 @@ function weekStrip(){ const sc=schedule(); const sh=schedShift(); const ds=['M',
 let stretchData={}; try{ stretchData=JSON.parse(localStorage.getItem('strideStretch')||'{}'); }catch(e){} stretchData.dates=stretchData.dates||{};
 function saveStretch(){ try{ localStorage.setItem('strideStretch', JSON.stringify(stretchData)); }catch(e){} }
 function stretchStreak(){ let n=0; const d=new Date(); if(!stretchData.dates[todayKey(d)]) d.setDate(d.getDate()-1); for(;;){ if(stretchData.dates[todayKey(d)]){n++;d.setDate(d.getDate()-1);} else break; } return n; }
+function longestStretchStreak(){ const ks=Object.keys(stretchData.dates||{}).sort(); if(!ks.length) return 0; let best=0,run=0,prev=null;
+  ks.forEach(k=>{ if(prev){ const pd=new Date(prev+'T00:00'); pd.setDate(pd.getDate()+1); run=(todayKey(pd)===k)?run+1:1; } else run=1; if(run>best)best=run; prev=k; }); return best; }
 const STRETCH_VIDS=[
   {t:'20-Min Beginner Stretch (V4)',c:'Bodyweight Warrior',id:'VdlN7kUfZZ4'},
   {t:'20-Min Beginner Flexibility (V2)',c:'Bodyweight Warrior',id:'SNNKQlkoPqQ'},
@@ -1066,9 +1071,14 @@ const STRETCH_VIDS=[
 ];
 function vidUrl(v){ return v.id? 'https://www.youtube.com/watch?v='+v.id : 'https://www.youtube.com/results?search_query='+encodeURIComponent(v.t+' '+v.c); }
 function stretchBlock(){ const v=STRETCH_VIDS[(stretchData.vid||0)%STRETCH_VIDS.length]; const done=!!stretchData.dates[todayKey(new Date())];
-  return `<div class="ovrow" style="margin-top:20px"><span>Tonight’s stretch</span><span style="color:var(--text-faint);font-size:12px">${stretchStreak()}-day streak</span></div>`
+  let dots=''; for(let i=13;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); const on=!!stretchData.dates[todayKey(d)]; const today=i===0;
+    dots+=`<div class="d"><div class="dot${on?' on':''}${today?' today':''}"></div></div>`; }
+  const n=new Date(); let month=0; for(let day=1;day<=n.getDate();day++){ if(stretchData.dates[todayKey(new Date(n.getFullYear(),n.getMonth(),day))]) month++; }
+  return `<div class="ovrow" style="margin-top:20px"><span>Evening stretch</span><span style="color:var(--text-faint);font-size:12px">${stretchStreak()}-night streak</span></div>`
    +`<a class="vid" href="${vidUrl(v)}" target="_blank" rel="noopener"><span class="vplay">▶</span><span class="vmeta"><b>${v.t}</b><span class="vch">${v.c}</span></span></a>`
-   +`<div class="strow"><button class="savebtn${done?' ok':''}" id="st-done" style="margin-top:0">${done?'✓ Stretched tonight':'Mark stretched'}</button><button class="ovtab" id="st-next">Different video</button></div>`; }
+   +`<div class="strow"><button class="savebtn${done?' ok':''}" id="st-done" style="margin-top:0">${done?'✓ Stretched tonight':'Sign off tonight’s stretch'}</button><button class="ovtab" id="st-next">Different video</button></div>`
+   +`<div class="week" style="margin:16px 0 0;justify-content:flex-start;flex-wrap:wrap">${dots}</div>`
+   +`<div class="ovstats">${stat(stretchStreak(),'night streak')}${stat(longestStretchStreak(),'best ever')}${stat(month+' / '+n.getDate(),'this month')}</div>`; }
 
 const RANGES={ activity:['14d','12wk','12mo'], sleep:['14d','12wk','12mo'], walk:['8wk','1yr'] };
 const RLABEL={'14d':'14 days','12wk':'12 weeks','12mo':'12 months','8wk':'8 weeks','1yr':'Year'};
