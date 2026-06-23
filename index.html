@@ -495,14 +495,14 @@ function gymCountForWeek(wk){ let n=0; for(const id in store.gymLog){ const ts=s
   return (store.gymWeek && store.gymWeek.week===wk) ? (+store.gymWeek.count||0) : (+(store.gymWeeks||{})[wk]||0); }
 const gym = gymCountForWeek(weekId(now));
 const steps = num(day.steps), dist = num(day.dist), sleep = day.sleep||0, walkDone = !!day.walk;
-function walkStreak(){ let n=0; const d=new Date(now);
+function walkStreak(){ let n=0; const d=new Date(now); d.setHours(12,0,0,0);
   if(!store.days[todayKey(d)] || !store.days[todayKey(d)].walk) d.setDate(d.getDate()-1);
   for(;;){ const r=store.days[todayKey(d)]; if(r&&r.walk){n++;d.setDate(d.getDate()-1);} else break; } return n; }
 function weekly(){ let done=0; const elapsed=((now.getDay()+6)%7)+1;
-  for(let i=0;i<elapsed;i++){ const d=new Date(now); d.setDate(d.getDate()-i);
+  for(let i=0;i<elapsed;i++){ const d=new Date(now); d.setHours(12,0,0,0); d.setDate(d.getDate()-i);
     const r=store.days[todayKey(d)]; if(r&&r.walk) done++; } return {done, elapsed}; }
 // rest-aware streak: a single rest day is forgiven, two consecutive misses break it
-function streakGrace(){ let n=0,miss=0; const d=new Date(now);
+function streakGrace(){ let n=0,miss=0; const d=new Date(now); d.setHours(12,0,0,0);
   for(let i=0;i<3000;i++){ const r=store.days[todayKey(d)]; if(r&&r.walk){n++;miss=0;} else {miss++; if(miss>1)break;} d.setDate(d.getDate()-1); }
   return n; }   // count from today: an un-walked today is one forgiven miss, a second consecutive miss breaks it (no double-grace)
 const streak = streakGrace(), wc = weekly();
@@ -526,11 +526,11 @@ if(dist) countUp($('dist'), dist, v=>v.toFixed(1)); else $('dist').textContent='
 (function(){ if(!sleep){ $('sleepH').textContent='—'; $('sleepM').textContent=''; return; }
   const m=Math.round(sleep*60); $('sleepH').textContent=Math.floor(m/60); $('sleepM').textContent=String(m%60).padStart(2,'0')+'m'; })();
 (function(){
-  const series=[]; for(let i=6;i>=0;i--){ const d=new Date(now); d.setDate(d.getDate()-i);
+  const series=[]; for(let i=6;i>=0;i--){ const d=new Date(now); d.setHours(12,0,0,0); d.setDate(d.getDate()-i);
     const r=store.days[todayKey(d)]; series.push(r&&r.sleep?r.sleep:0); }
   drawArea($('sleepChart'), series, Math.max(GOAL.sleep,...series,1), 'sleepg', null, true);
   // delta: this 7 nights avg vs previous 7
-  const avg=(a,b)=>{let s=0,n=0; for(let i=a;i<b;i++){const d=new Date(now);d.setDate(d.getDate()-i);const r=store.days[todayKey(d)]; if(r&&r.sleep){s+=r.sleep;n++;}} return n>=3?s/n:null;};   // need ≥3 nights a side or the "vs last week" delta is misleading precision
+  const avg=(a,b)=>{let s=0,n=0; for(let i=a;i<b;i++){const d=new Date(now);d.setHours(12,0,0,0);d.setDate(d.getDate()-i);const r=store.days[todayKey(d)]; if(r&&r.sleep){s+=r.sleep;n++;}} return n>=3?s/n:null;};   // need ≥3 nights a side or the "vs last week" delta is misleading precision
   const tw=avg(0,7), pw=avg(7,14);
   if(tw!=null&&pw!=null){ const m=Math.round((tw-pw)*60); const el=$('sleepDelta');
     el.textContent=(m>=0?'+':'')+m+'m vs last week'; el.classList.toggle('down', m<0); }
@@ -548,7 +548,7 @@ rafSet(()=> $('gymArc').style.strokeDasharray = Math.min(100, gym/GOAL.gym*100)+
 
 // ---- hero gauge --------------------------------------------------------
 (function(){
-  let sum7=0,d7=0; for(let i=0;i<wc.elapsed;i++){ const d=new Date(now); d.setDate(d.getDate()-i);
+  let sum7=0,d7=0; for(let i=0;i<wc.elapsed;i++){ const d=new Date(now); d.setHours(12,0,0,0); d.setDate(d.getDate()-i);
     const r=store.days[todayKey(d)]; if(r&&r.steps!=null){ sum7+=r.steps; d7++; } }
   const gymPart=Math.min(1,gym/GOAL.gym), walkPart=wc.elapsed?wc.done/wc.elapsed:0, stepPart=d7?Math.min(1,(sum7/d7)/GOAL.steps):0;
   const score=Math.round(100*(0.4*gymPart+0.4*walkPart+0.2*stepPart));
@@ -565,7 +565,7 @@ $('streak').textContent = streak;
 $('consistency').textContent = wc.done+'/'+wc.elapsed+' this wk';
 rafSet(()=>{ $('walkArc').style.strokeDashoffset = walkDone?0:213.6; if(walkDone) $('walkArc').style.stroke='var(--good)'; });
 (function(){ const w=$('walkWeek'); const init=['M','T','W','T','F','S','S']; let html='';
-  for(let i=6;i>=0;i--){ const d=new Date(now); d.setDate(d.getDate()-i);
+  for(let i=6;i>=0;i--){ const d=new Date(now); d.setHours(12,0,0,0); d.setDate(d.getDate()-i);
     const r=store.days[todayKey(d)]; const on=r&&r.walk; const today=i===0;
     html+=`<div class="d"><div class="dot${on?' on':''}${today?' today':''}"></div><div class="dl">${init[(d.getDay()+6)%7]}</div></div>`; }
   w.innerHTML=html; })();
@@ -602,8 +602,8 @@ function fmtHour(h){ const ap=h<12?'am':'pm'; let x=h%12; if(x===0)x=12; return 
   const ms=[7,14,30,60,100,200,365];
   // "normal for you": this week's avg daily steps vs the prior ~4 weeks (honest baseline, not a score)
   const wkPace=()=>{ const el=((now.getDay()+6)%7)+1; let cur=0,curN=0,base=0,baseN=0;
-    for(let i=0;i<el;i++){ const d=new Date(now); d.setDate(d.getDate()-i); const r=store.days[todayKey(d)]; if(r&&r.steps!=null){cur+=r.steps;curN++;} }
-    for(let i=el;i<el+28;i++){ const d=new Date(now); d.setDate(d.getDate()-i); const r=store.days[todayKey(d)]; if(r&&r.steps!=null){base+=r.steps;baseN++;} }
+    for(let i=0;i<el;i++){ const d=new Date(now); d.setHours(12,0,0,0); d.setDate(d.getDate()-i); const r=store.days[todayKey(d)]; if(r&&r.steps!=null){cur+=r.steps;curN++;} }
+    for(let i=el;i<el+28;i++){ const d=new Date(now); d.setHours(12,0,0,0); d.setDate(d.getDate()-i); const r=store.days[todayKey(d)]; if(r&&r.steps!=null){base+=r.steps;baseN++;} }
     if(curN<1||baseN<5) return 0; const b=base/baseN; return b>0?(cur/curN)/b:0; };
   let line;
   if(lowSleep) line=pick([
@@ -895,13 +895,13 @@ function ovbars(items){ const max=Math.max(...items.map(x=>x.v),1);
   return '<div class="ovbars">'+items.map(x=>`<div class="b"><div class="bar${x.v?'':' dim'}" style="height:${x.v?Math.max(3,Math.round(x.v/max*100)):2}%;${x.hi?'box-shadow:0 0 0 2px var(--viz2),0 0 12px var(--viz);':''}"></div><div class="bl">${x.lbl||''}</div></div>`).join('')+'</div>'; }
 const stat=(n,l)=>`<div class="ovstat"><div class="n">${n}</div><div class="l">${l}</div></div>`;
 function longestStreak(){ const keys=Object.keys(store.days).filter(k=>store.days[k].walk).sort();
-  let best=0,run=0,prev=null; keys.forEach(k=>{ if(prev){ const diff=Math.round((new Date(k+'T00:00')-new Date(prev+'T00:00'))/86400000); run=diff===1?run+1:1; } else run=1; prev=k; if(run>best)best=run; }); return best; }
+  let best=0,run=0,prev=null; keys.forEach(k=>{ if(prev){ const diff=Math.round((new Date(k+'T12:00')-new Date(prev+'T12:00'))/86400000); run=diff===1?run+1:1; } else run=1; prev=k; if(run>best)best=run; }); return best; }
 function monthPct(){ const n=new Date(); let done=0; for(let day=1;day<=n.getDate();day++){ const r=store.days[todayKey(new Date(n.getFullYear(),n.getMonth(),day))]; if(r&&r.walk) done++; } return Math.round(done/n.getDate()*100); }
-function weeklyNow(){ const n=new Date(); let done=0; const elapsed=((n.getDay()+6)%7)+1; for(let i=0;i<elapsed;i++){ const d=new Date(n); d.setDate(d.getDate()-i); const r=store.days[todayKey(d)]; if(r&&r.walk) done++; } return {done,elapsed}; }
+function weeklyNow(){ const n=new Date(); let done=0; const elapsed=((n.getDay()+6)%7)+1; for(let i=0;i<elapsed;i++){ const d=new Date(n); d.setHours(12,0,0,0); d.setDate(d.getDate()-i); const r=store.days[todayKey(d)]; if(r&&r.walk) done++; } return {done,elapsed}; }
 
 // aggregate the daily history into weeks / months (for months & years views)
 function aggWeeks(nWeeks){ const out=[]; const n=new Date();
-  for(let i=nWeeks-1;i>=0;i--){ const m=new Date(n); m.setDate(n.getDate()-((n.getDay()+6)%7)-i*7);
+  for(let i=nWeeks-1;i>=0;i--){ const m=new Date(n); m.setHours(12,0,0,0); m.setDate(n.getDate()-((n.getDay()+6)%7)-i*7);
     let steps=0,sS=0,sN=0,walks=0,days=0;
     for(let d=0;d<7;d++){ const dt=new Date(m); dt.setDate(m.getDate()+d); if(dt>n) break; const r=store.days[todayKey(dt)]; if(r){ days++; steps+=num(r.steps); if(r.sleep){sS+=r.sleep;sN++;} if(r.walk)walks++; } }
     out.push({lbl:m.getDate()+'/'+(m.getMonth()+1), stepAvg:days?steps/days:0, sleepAvg:sN?sS/sN:0, walks, days}); }
@@ -961,7 +961,7 @@ function historyStats(){ const ks=Object.keys(store.days);
     if(r.walk){ walkDays++; seasons[se]=1; if(se==='win')winterWalks++; }
     if(num(r.sleep)>=GOAL.sleep){ nightsTarget++; if(s>=GOAL.steps) restedReady++; }
     const h=r.hours; if(h&&(num(h[5])+num(h[6]))>200) dawnDays++; });
-  const wk={}; ks.forEach(k=>{ const w=weekId(new Date(k+'T00:00')); wk[w]=(wk[w]||0)+num(store.days[k].steps); });
+  const wk={}; ks.forEach(k=>{ const w=weekId(new Date(k+'T12:00')); wk[w]=(wk[w]||0)+num(store.days[k].steps); });
   // per-week gym counts from the log (source of truth), reconciled with legacy counters → trophies count logged visits too
   const legacy=Object.assign({}, store.gymWeeks||{}); if(store.gymWeek&&store.gymWeek.week) legacy[store.gymWeek.week]=Math.max(+legacy[store.gymWeek.week]||0,+store.gymWeek.count||0);
   const logw={}; for(const id in (store.gymLog||{})){ const ts=store.gymLog[id]; if(typeof ts==='string'&&id.indexOf('gym_')===0){ const dt=new Date(ts); if(!isNaN(dt)) logw[weekId(dt)]=(logw[weekId(dt)]||0)+1; } }
@@ -977,7 +977,7 @@ function trophyShelf(){ const h=historyStats(); const got=TROPHIES.filter(t=>t.t
 // honest insights (beyond the stock Health app), computed from history
 const WD=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 function bestWeekday(){ const sum=new Array(7).fill(0),cnt=new Array(7).fill(0);
-  for(const k in store.days){ const wd=(new Date(k+'T00:00').getDay()+6)%7; sum[wd]+=num(store.days[k].steps); cnt[wd]++; }
+  for(const k in store.days){ const wd=(new Date(k+'T12:00').getDay()+6)%7; sum[wd]+=num(store.days[k].steps); cnt[wd]++; }
   let bi=0,bv=-1; for(let i=0;i<7;i++){ const a=cnt[i]?sum[i]/cnt[i]:0; if(a>bv){bv=a;bi=i;} } return WD[bi]; }
 function monthKm(){ const n=new Date(); const pref=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0'); let km=0;
   for(const k in store.days){ if(k.indexOf(pref)===0) km+=num(store.days[k].dist); } return km; }
@@ -985,13 +985,13 @@ function insight(t){ return `<div class="insight">${t}</div>`; }
 function actIns(){ return Object.keys(store.days).length>=5? insight('You move most on <b>'+bestWeekday()+'</b>.') : ''; }
 function rankOf(g){ return g>=23?'Relentless':g>=16?'Athlete':g>=9?'Strider':g>=3?'Mover':'Getting started'; }
 function longestStreakGrace(){ const ks=Object.keys(store.days).sort(); if(!ks.length) return 0;
-  let best=0,cur=0,miss=0; const end=new Date();
-  for(let d=new Date(ks[0]+'T00:00'); d<=end; d.setDate(d.getDate()+1)){ const r=store.days[todayKey(d)];
+  let best=0,cur=0,miss=0; const end=new Date(); end.setHours(12,0,0,0);
+  for(let d=new Date(ks[0]+'T12:00'); d<=end; d.setDate(d.getDate()+1)){ const r=store.days[todayKey(d)];
     if(r&&r.walk){ cur++; miss=0; if(cur>best)best=cur; } else { miss++; if(miss>1){ cur=0; miss=0; } } }
   return best; }
 function weekRecap(){ const n=new Date(); let walks=0,steps=0; const el=((n.getDay()+6)%7)+1;
-  for(let i=0;i<el;i++){ const d=new Date(n); d.setDate(d.getDate()-i); const r=store.days[todayKey(d)]; if(r){ if(r.walk)walks++; steps+=num(r.steps); } }
-  let ls=0; for(let i=el;i<el+7;i++){ const d=new Date(n); d.setDate(d.getDate()-i); const r=store.days[todayKey(d)]; if(r) ls+=num(r.steps); }
+  for(let i=0;i<el;i++){ const d=new Date(n); d.setHours(12,0,0,0); d.setDate(d.getDate()-i); const r=store.days[todayKey(d)]; if(r){ if(r.walk)walks++; steps+=num(r.steps); } }
+  let ls=0; for(let i=el;i<el+7;i++){ const d=new Date(n); d.setHours(12,0,0,0); d.setDate(d.getDate()-i); const r=store.days[todayKey(d)]; if(r) ls+=num(r.steps); }
   const g=(store.gymWeek&&store.gymWeek.week===weekId(n))?store.gymWeek.count:0;
   return {walks,gym:g,steps,delta: ls?Math.round((steps-ls)/ls*100):null}; }
 function monthChallenge(){ const n=new Date(); const tp=n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0');
@@ -1081,7 +1081,7 @@ function pushStretch(dk,on){ if(!FIREBASE_URL) return; try{ const base=FIREBASE_
   fetch(base+'/stride/stretch/'+dk+'.json', on?{method:'PUT',keepalive:true,body:'true'}:{method:'DELETE',keepalive:true}).catch(()=>{}); }catch(e){} }
 function stretchStreak(){ let n=0; const d=new Date(); if(!stretchData.dates[todayKey(d)]) d.setDate(d.getDate()-1); for(;;){ if(stretchData.dates[todayKey(d)]){n++;d.setDate(d.getDate()-1);} else break; } return n; }
 function longestStretchStreak(){ const ks=Object.keys(stretchData.dates||{}).sort(); if(!ks.length) return 0; let best=0,run=0,prev=null;
-  ks.forEach(k=>{ if(prev){ const pd=new Date(prev+'T00:00'); pd.setDate(pd.getDate()+1); run=(todayKey(pd)===k)?run+1:1; } else run=1; if(run>best)best=run; prev=k; }); return best; }
+  ks.forEach(k=>{ if(prev){ const pd=new Date(prev+'T12:00'); pd.setDate(pd.getDate()+1); run=(todayKey(pd)===k)?run+1:1; } else run=1; if(run>best)best=run; prev=k; }); return best; }
 const STRETCH_VIDS=[
   {t:'20-Min Beginner Stretch (V4)',c:'Bodyweight Warrior',id:'VdlN7kUfZZ4'},
   {t:'20-Min Beginner Flexibility (V2)',c:'Bodyweight Warrior',id:'SNNKQlkoPqQ'},
