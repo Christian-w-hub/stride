@@ -340,7 +340,7 @@
       <div class="chead"><div class="chip" data-ic="moon"></div><div class="ctitle">Sleep</div><div class="tag">Last 7 nights</div></div>
       <div class="row"><span class="num big" id="sleepH">—</span><span class="unit">h</span><span class="num" id="sleepM" style="font-size:22px;color:var(--text-dim)"></span><span class="delta" id="sleepDelta" style="margin-left:auto"></span></div>
       <svg class="chart" id="sleepChart" viewBox="0 0 100 50" preserveAspectRatio="none" aria-hidden="true"></svg>
-      <div class="note">Estimated · charging + do not disturb</div>
+      <div class="note" id="sleepNote">Estimated · charging + do not disturb</div>
     </section>
 
     <!-- GYM -->
@@ -523,7 +523,9 @@ if(dist) countUp($('dist'), dist, v=>v.toFixed(1)); else $('dist').textContent='
 })();
 
 // ---- sleep: 7-night area + weekly delta --------------------------------
-(function(){ if(!sleep){ $('sleepH').textContent='—'; $('sleepM').textContent=''; return; }
+(function(){ if(!sleep){ $('sleepH').textContent='—'; $('sleepM').textContent='';
+    if(!Object.keys(store.days).some(k=>store.days[k]&&store.days[k].sleep)){ const nt=$('sleepNote'); if(nt) nt.textContent='Add the sleep step to your phone sync to light this up.'; }   // no sleep ever → guide setup, don't look broken
+    return; }
   const m=Math.round(sleep*60); $('sleepH').textContent=Math.floor(m/60); $('sleepM').textContent=String(m%60).padStart(2,'0')+'m'; })();
 (function(){
   const series=[]; for(let i=6;i>=0;i--){ const d=new Date(now); d.setHours(12,0,0,0); d.setDate(d.getDate()-i);
@@ -587,6 +589,7 @@ function fmtHour(h){ const ap=h<12?'am':'pm'; let x=h%12; if(x===0)x=12; return 
     s.className=c.trim(); s.title=fmtHour(h)+' · '+Math.round(avg[h])+' steps avg'; bars.appendChild(s);
     rafSet(()=> s.style.height=Math.round((avg[h]/max)*100)+'%'); }
   const ins=$('clockInsight');
+  if(!days){ ins.textContent='Add the hourly-movement step to your phone sync to map when you move.'; return; }   // never synced hours → guide setup
   if(days<10){ ins.textContent='Learning your rhythm — a week or two more of synced days and I’ll spot when you usually move.'; return; }   // 3 days isn't a pattern; don't claim one
   let line='Most days you move around <b>'+fmtHour(ranked[0])+'</b>.';
   if(walkDone) line+=' Walk’s done.'; else if(suggest!=null) line+=' Good window today: <b>~'+fmtHour(suggest)+'</b>.';

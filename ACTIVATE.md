@@ -28,6 +28,7 @@ replace everything with this and tap **Publish**:
       ".read": true,
       "days":    { ".write": true },
       "updated": { ".write": true },
+      "stretch": { ".write": true },
       "gymLog":  { "$id": { ".write": "!data.exists() || auth !== null", ".validate": "newData.isString() && newData.val().length <= 40" } }
     }
   }
@@ -91,13 +92,30 @@ Run once.
 4. **If** that value **is** `true` → leave empty; **Otherwise** → **Show Notification** → `No walk yet — a short one still counts.`
 Automations: **Time of Day** 1 pm / 4 pm / 6:30 pm, **Notify ON**. It self-silences once you've walked.
 
-**Sleep** (the one fiddly Health read — add later if you want it). In **Stride Sync**, before
+**The sleep step** (the one fiddly Health read — add when ready). In **Stride Sync**, before
 action 9: **Find Health Samples** → **Sleep Analysis** → **Start Date is in the last 1 days** →
 **Calculate Statistics Sum** → **Calculate** *that* **÷ 3600** → **Set Variable Sleep** → then
-add a third JSON field in action 9: Number `sleep` = *Sleep*.
+add a third JSON field in action 9: Number `sleep` = *Sleep*. The Sleep card lights up on the
+next sync.
 
-**Gym auto-detect by location** is in **SETUP.md → Step 4**. Until then, tap the dashboard's
-**Gym** card → **Log a session today**.
+**Gym auto-detect by location.** A separate location-triggered automation, no key needed.
+First make a shortcut **Stride Gym**:
+1. **Format Date** → **Current Date**, format **Custom** `gym_yyyyMMddHHmm` → **Set Variable Id**.
+2. **Format Date** → **Current Date**, format **ISO 8601** (Date and time) → **Set Variable Stamp**.
+3. **Text** → type a quote, *Insert "Stamp"*, a quote (so the body is a JSON string) → **Set Variable Body**.
+4. **Get Contents of URL** → `…/stride/gymLog/` *Insert "Id"* `.json` → **Show More** → **Method PUT** → **Request Body** = **File** → *Insert "Body"*.
+
+Then the trigger: **Automation** tab → **＋** → **Arrive** → choose your gym → **Next** → **Run
+Immediately**, **Notify When Run OFF** → **Run Shortcut** → **Stride Gym**. Arriving logs one
+session. (No gym? Tap the dashboard **Gym** card → **Log a session today**.)
+
+**Movement rhythm** (advanced — powers the hourly clock; 24 Health reads, run a few times a day).
+New shortcut **Stride Hours**:
+1. **Format Date** → **Current Date**, **Custom** `yyyy-MM-dd` → **Set Variable DayKey**.
+2. **Number** `24` → **Repeat** that many times. Inside:
+   - **Find Health Samples** → **Steps** → **Add Filter Start Date is within the last** *Insert "Repeat Index"* **Hours** (this hour's bucket) → **Calculate Statistics Sum** → collect into a list as you go.
+   This one is fiddliest; if you want it, tell me your screen and I'll walk the loop with you. It
+   only feeds the rhythm chart — the four pillars don't need it.
 
 ---
 
