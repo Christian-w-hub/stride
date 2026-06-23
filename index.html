@@ -645,7 +645,8 @@ function fmtHour(h){ const ap=h<12?'am':'pm'; let x=h%12; if(x===0)x=12; return 
 })();
 
 // ---- staleness ---------------------------------------------------------
-if(store.updated){ const hrs=(Date.now()-store.updated)/3.6e6;
+function syncedHrs(){ const u=store.updated; if(u==null) return null; const ms=(typeof u==='string')?Date.parse(u):+u; return isNaN(ms)?null:(Date.now()-ms)/3.6e6; }
+if(syncedHrs()!=null){ const hrs=syncedHrs();
   if(hrs>20){ const s=$('stale'); s.textContent='Last synced '+Math.round(hrs)+'h ago — open the iPhone shortcut to refresh.'; s.classList.add('show'); } }
 
 // ---- time-of-day sky (the background acts as a clock) ------------------
@@ -784,7 +785,7 @@ function loadWeather(force){
   window.addEventListener('pageshow', e=>{ if(e.persisted && todayKey(new Date())!==key) location.reload(); });
   // periodic safety net: roll the day even if the midnight timer was suspended, and surface the staleness banner
   setInterval(()=>{ if(!document.hidden && todayKey(new Date())!==key){ location.reload(); return; }
-    if(store.updated){ const hrs=(Date.now()-store.updated)/3.6e6; const s=$('stale');
+    const hrs=syncedHrs(); if(hrs!=null){ const s=$('stale');
     if(hrs>20){ s.textContent='Last synced '+Math.round(hrs)+'h ago — open the iPhone shortcut to refresh.'; s.classList.add('show'); } else { s.classList.remove('show'); } } }, 600000);
 })();
 
@@ -798,18 +799,19 @@ function applyRemote(remote){
   try{
     const L=store;
     const cday=d=>{ if(!d||typeof d!=='object') return d; const o=Object.assign({},d);   // coerce remote types so number/string drift can't cause perpetual reloads
-      if(o.steps!=null)o.steps=num(o.steps); if(o.dist!=null)o.dist=num(o.dist); if(o.sleep!=null)o.sleep=num(o.sleep); if(o.walk!=null)o.walk=!!o.walk; return o; };
+      if(o.steps!=null)o.steps=num(o.steps); if(o.dist!=null)o.dist=num(o.dist); if(o.sleep!=null)o.sleep=num(o.sleep);
+      if(o.walk!=null)o.walk=(o.walk===true||o.walk==='true'||o.walk==='1'||(+o.walk>0)); return o; };   // accept true/false/1/0/"true"/"false" from the shortcut (string "false" must NOT read as true)
     const rdays={}, src=remote.days||{}; for(const k in src) rdays[k]=cday(src[k]);
     const merged=Object.assign({}, L);                              // start from local; adopt only an allowlist of remote keys so a stray top-level key (e.g. _gymArrived, a probe) can't trigger a reload storm
     merged.days     = Object.assign({}, L.days||{}, rdays);          // remote days win per-day; local-only days kept
     merged.gymWeeks = Object.assign({}, remote.gymWeeks||{}, L.gymWeeks||{});
     merged.gymLog   = remote.gymLog!=null ? Object.assign({}, remote.gymLog) : (L.gymLog||{});  // remote-authoritative session log (undo/deletes propagate)
     if(remote.gymWeek!=null) merged.gymWeek = remote.gymWeek;
-    merged.updated  = Number(remote.updated)||L.updated;             // banner freshness only
+    merged.updated  = remote.updated!=null ? remote.updated : L.updated;   // banner freshness only; accept an ISO string or a number
     merged.celebrated = L.celebrated||remote.celebrated||{};         // never replay celebrations
     const gm=Object.assign({}, L.gymManual||{}); for(const id in (merged.gymLog||{})) if(id.indexOf('gym_')===0 && merged.gymLog[id]) gm[id.slice(4)]=true; merged.gymManual=gm;  // derive "logged today" from the log → correct on any device
     const sig=o=>{ const c=Object.assign({},o); delete c.updated; delete c.gymManual; return stable(c); };  // a reload is warranted only by a visible change, not by `updated`/derived state
-    if(sig(merged)===sig(L)){ if(Number(merged.updated)!==Number(L.updated)){ saveBlob(merged); } return; }
+    if(sig(merged)===sig(L)){ if(merged.updated!==L.updated){ saveBlob(merged); } return; }   // content unchanged but a fresh sync arrived → record it for the banner, no reload
     saveBlob(merged);
   }catch(e){ return; }
   scheduleReload();
@@ -827,7 +829,7 @@ function startFirebase(){ if(!FIREBASE_URL) return; const base=FIREBASE_URL.repl
     es.addEventListener('put', onEv); es.addEventListener('patch', onEv);
   }catch(e){} }
   pullFirebase();
-  setInterval(()=>{ fetch(base+'/stride/updated.json',{cache:'no-store'}).then(r=> r.ok ? r.json() : null).then(u=>{ if(u==null||Number(u)===Number(_fbU)) return; _fbU=u; pullFirebase(); }).catch(()=>{}); }, 60000);
+  setInterval(()=>{ fetch(base+'/stride/updated.json',{cache:'no-store'}).then(r=> r.ok ? r.json() : null).then(u=>{ if(u==null||u===_fbU) return; _fbU=u; pullFirebase(); }).catch(()=>{}); }, 60000);   // string-safe (updated is an ISO stamp)
 }
 startFirebase();
 
