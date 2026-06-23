@@ -433,6 +433,9 @@ if(silent) document.documentElement.classList.add('silent');
 function saveBlob(o){ try{ localStorage.setItem('stride', JSON.stringify(o)); return true; }catch(e){ try{ const s=document.getElementById('stale'); if(s){ s.textContent='Storage is full — recent data may not be saving. Free space on this device.'; s.classList.add('show'); } }catch(_){} return false; } }
 // === Paste your Firebase Realtime Database URL here to turn on always-on cross-device sync ===
 // e.g. 'https://stride-xxxx-default-rtdb.firebaseio.com'  (leave '' for local / URL-param mode)
+// WIRE CONTRACT — keep the phone dumb. PHONE SENDS raw only: days/<date> = {steps, dist, sleep?, hours?}; gymLog/<id> = ISO ts.
+// THE APP DECIDES everything else: walk, dates/week math, dedup, freshness, scoring, streaks. If a Shortcut step is a decision,
+// a format, or a route, it belongs here, not on the phone. (The phone's only real jobs: read Health, geofence, loop history.)
 const FIREBASE_URL = 'https://stride-dash-c3e2a-default-rtdb.europe-west1.firebasedatabase.app';
 const FIREBASE_KEY = '';   // intentionally empty: the page is public, so the write secret lives ONLY in the phone Shortcuts. Do not put it here.
 const voice = (()=>{ try{ return localStorage.getItem('strideVoice')||'full'; }catch(e){ return 'full'; } })(); // full | subtle | off
@@ -492,9 +495,8 @@ function weekly(){ let done=0; const elapsed=((now.getDay()+6)%7)+1;
     const r=store.days[todayKey(d)]; if(r&&r.walk) done++; } return {done, elapsed}; }
 // rest-aware streak: a single rest day is forgiven, two consecutive misses break it
 function streakGrace(){ let n=0,miss=0; const d=new Date(now);
-  if(!(store.days[todayKey(d)]&&store.days[todayKey(d)].walk)) d.setDate(d.getDate()-1);
   for(let i=0;i<3000;i++){ const r=store.days[todayKey(d)]; if(r&&r.walk){n++;miss=0;} else {miss++; if(miss>1)break;} d.setDate(d.getDate()-1); }
-  return n; }
+  return n; }   // count from today: an un-walked today is one forgiven miss, a second consecutive miss breaks it (no double-grace)
 const streak = streakGrace(), wc = weekly();
 
 // ---- header ------------------------------------------------------------
@@ -520,7 +522,7 @@ if(dist) countUp($('dist'), dist, v=>v.toFixed(1)); else $('dist').textContent='
     const r=store.days[todayKey(d)]; series.push(r&&r.sleep?r.sleep:0); }
   drawArea($('sleepChart'), series, Math.max(GOAL.sleep,...series,1), 'sleepg', null, true);
   // delta: this 7 nights avg vs previous 7
-  const avg=(a,b)=>{let s=0,n=0; for(let i=a;i<b;i++){const d=new Date(now);d.setDate(d.getDate()-i);const r=store.days[todayKey(d)]; if(r&&r.sleep){s+=r.sleep;n++;}} return n?s/n:null;};
+  const avg=(a,b)=>{let s=0,n=0; for(let i=a;i<b;i++){const d=new Date(now);d.setDate(d.getDate()-i);const r=store.days[todayKey(d)]; if(r&&r.sleep){s+=r.sleep;n++;}} return n>=3?s/n:null;};   // need ≥3 nights a side or the "vs last week" delta is misleading precision
   const tw=avg(0,7), pw=avg(7,14);
   if(tw!=null&&pw!=null){ const m=Math.round((tw-pw)*60); const el=$('sleepDelta');
     el.textContent=(m>=0?'+':'')+m+'m vs last week'; el.classList.toggle('down', m<0); }
@@ -577,7 +579,7 @@ function fmtHour(h){ const ap=h<12?'am':'pm'; let x=h%12; if(x===0)x=12; return 
     s.className=c.trim(); s.title=fmtHour(h)+' · '+Math.round(avg[h])+' steps avg'; bars.appendChild(s);
     rafSet(()=> s.style.height=Math.round((avg[h]/max)*100)+'%'); }
   const ins=$('clockInsight');
-  if(days<3){ ins.textContent='Learning your rhythm — a few more synced days and I’ll spot when you usually move.'; return; }
+  if(days<10){ ins.textContent='Learning your rhythm — a week or two more of synced days and I’ll spot when you usually move.'; return; }   // 3 days isn't a pattern; don't claim one
   let line='Most days you move around <b>'+fmtHour(ranked[0])+'</b>.';
   if(walkDone) line+=' Walk’s done.'; else if(suggest!=null) line+=' Good window today: <b>~'+fmtHour(suggest)+'</b>.';
   ins.innerHTML=line;
@@ -682,11 +684,6 @@ function paint(top, mid, hz, sun, sunY){
   s.setProperty('--sky-top',rgb(top)); s.setProperty('--sky-mid',rgb(mid)); s.setProperty('--sky-horizon',rgb(hz));
   s.setProperty('--sun',`rgba(${sun[0]|0},${sun[1]|0},${sun[2]|0},${sunA.toFixed(3)})`); s.setProperty('--sun-y',sunY+'%');
   const warm=(hz[0]-hz[2])>30; s.setProperty('--viz-fb',warm?'#2dd4bf':'#FF6A2C'); s.setProperty('--viz2-fb',warm?'#5eead4':'#FFA63D');
-  // adaptive glass dim: darken the reflected sky more when it's bright, so light text
-  // stays legible on real translucent glass (no flat veil, no text shadows). Dark skies stay bright.
-  const lum=c=>(0.2126*c[0]+0.7152*c[1]+0.0722*c[2])/255;
-  const Lr=0.42*lum(mid)+0.58*lum(hz);          // cards span mid->horizon; weight the brighter horizon
-  s.setProperty('--glass-dim', Math.max(.28, Math.min(1, 0.19/Math.max(.04,Lr))).toFixed(3));
   adaptViz(top,mid,hz);
 }
 // per-card data viz: keep each card's own colour, but flip to the sky-contrast fallback
@@ -769,7 +766,7 @@ function loadWeather(force){
     const u=`https://api.open-meteo.com/v1/forecast?latitude=${g.lat}&longitude=${g.lon}&current=temperature_2m,weather_code,cloud_cover,precipitation,is_day&timezone=auto`;
     const c=(await (await fetch(u)).json()).current; if(!c) return;
     const cloud=(c.cloud_cover||0)/100;
-    WX={code:c.weather_code,temp:Math.round(c.temperature_2m),cloud,precip:c.precipitation||0,isDay:c.is_day,cls:wxClass(c.weather_code,cloud)};
+    WX={code:c.weather_code,temp:Math.round(c.temperature_2m),cloud,cls:wxClass(c.weather_code,cloud)};
     try{ localStorage.setItem('strideWxCache', JSON.stringify({at:Date.now(),wx:WX})); }catch(e){}
     setSky(); wxParticles(WX.cls); renderWx();
   }catch(e){} });
@@ -798,12 +795,12 @@ function applyRemote(remote){
   if(!remote || typeof remote!=='object') return;
   try{
     const L=store;
-    const cday=d=>{ if(!d||typeof d!=='object') return d; const o=Object.assign({},d);   // coerce remote types so number/string drift can't cause perpetual reloads
+    const cday=(d,prev)=>{ if(!d||typeof d!=='object') return d; const o=Object.assign({},d);   // coerce remote types so number/string drift can't cause perpetual reloads
       if(o.steps!=null)o.steps=num(o.steps); if(o.dist!=null)o.dist=num(o.dist); if(o.sleep!=null)o.sleep=num(o.sleep);
-      // the shortcut just sends raw numbers; the app decides what counts as a real walk
-      o.walk = (o.walk!=null) ? (o.walk===true||o.walk==='true'||o.walk==='1'||(+o.walk>0))
-                              : ((+o.dist>=1.2)||(+o.steps>=GOAL.walkSteps)); return o; };
-    const rdays={}, src=remote.days||{}; for(const k in src) rdays[k]=cday(src[k]);
+      // the shortcut just sends raw numbers; the app decides what counts as a real walk — and a walk, once earned, never un-fills
+      o.walk = (prev&&prev.walk) || (o.walk===true||o.walk==='true'||o.walk==='1'||(+o.walk>0)) || (+o.dist>=1.2) || (+o.steps>=GOAL.walkSteps);
+      return o; };
+    const rdays={}, src=remote.days||{}, ld=L.days||{}; for(const k in src) rdays[k]=cday(src[k], ld[k]);
     const merged=Object.assign({}, L);                              // start from local; adopt only an allowlist of remote keys so a stray top-level key (e.g. _gymArrived, a probe) can't trigger a reload storm
     merged.days     = Object.assign({}, L.days||{}, rdays);          // remote days win per-day; local-only days kept
     merged.gymWeeks = Object.assign({}, remote.gymWeeks||{}, L.gymWeeks||{});
@@ -819,19 +816,21 @@ function applyRemote(remote){
   scheduleReload();
 }
 let _reloadT=null;
-function scheduleReload(){ clearTimeout(_reloadT); _reloadT=setTimeout(()=>{ sessionStorage.setItem('strideSilent','1'); location.reload(); }, 3000); }  // collapse a burst of syncs into one silent reload
+function scheduleReload(){ clearTimeout(_reloadT); _reloadT=setTimeout(()=>{ sessionStorage.setItem('strideSilent','1'); location.reload(); }, 1000); }  // small debounce to coalesce a burst, then refresh
 function pullFirebase(){ if(!FIREBASE_URL) return; fetch(FIREBASE_URL.replace(/\/+$/,'')+'/stride.json',{cache:'no-store'}).then(r=> r.ok ? r.json() : null).then(applyRemote).catch(()=>{}); }
 // live push via Firebase REST streaming (EventSource): any change fires an event → coalesce → read truth → apply.
-// Safety net: poll only the tiny `updated` stamp and full-read on change (cheap; also covers a dropped stream).
-let _pullT=null, _fbU=null;
-function startFirebase(){ if(!FIREBASE_URL) return; const base=FIREBASE_URL.replace(/\/+$/,'');
-  if(typeof EventSource!=='undefined'){ try{
-    const es=new EventSource(base+'/stride.json');
-    const onEv=()=>{ clearTimeout(_pullT); _pullT=setTimeout(pullFirebase, 500); };   // browser auto-reconnects on transient errors
-    es.addEventListener('put', onEv); es.addEventListener('patch', onEv);
-  }catch(e){} }
+let _pullT=null, _es=null;
+function openStream(){ if(!FIREBASE_URL || typeof EventSource==='undefined') return; try{
+  _es=new EventSource(FIREBASE_URL.replace(/\/+$/,'')+'/stride.json');
+  const onEv=()=>{ clearTimeout(_pullT); _pullT=setTimeout(pullFirebase, 400); };
+  _es.addEventListener('put', onEv); _es.addEventListener('patch', onEv);
+  _es.onerror=()=>{ try{_es.close()}catch(_){} _es=null; setTimeout(openStream, 3000); pullFirebase(); };   // a silently-dropped stream is the real iOS risk → rebuild + immediate catch-up
+}catch(e){ _es=null; } }
+function startFirebase(){ if(!FIREBASE_URL) return;
+  openStream();
   pullFirebase();
-  setInterval(pullFirebase, 120000);   // backup poll (EventSource is primary, instant); applyRemote only reloads on a real change
+  setInterval(pullFirebase, 60000);   // backup poll (the lifeline if the stream silently dies)
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ if(!_es) openStream(); pullFirebase(); } });   // catch up the instant it's looked at
 }
 startFirebase();
 
@@ -952,10 +951,14 @@ function historyStats(){ const ks=Object.keys(store.days);
     if(num(r.sleep)>=GOAL.sleep){ nightsTarget++; if(s>=GOAL.steps) restedReady++; }
     const h=r.hours; if(h&&(num(h[5])+num(h[6]))>200) dawnDays++; });
   const wk={}; ks.forEach(k=>{ const w=weekId(new Date(k+'T00:00')); wk[w]=(wk[w]||0)+num(store.days[k].steps); });
-  const gyms=Object.values(store.gymWeeks||{}).map(Number); if(store.gymWeek) gyms.push(num(store.gymWeek.count));
+  // per-week gym counts from the log (source of truth), reconciled with legacy counters → trophies count logged visits too
+  const legacy=Object.assign({}, store.gymWeeks||{}); if(store.gymWeek&&store.gymWeek.week) legacy[store.gymWeek.week]=Math.max(+legacy[store.gymWeek.week]||0,+store.gymWeek.count||0);
+  const logw={}; for(const id in (store.gymLog||{})){ const ts=store.gymLog[id]; if(typeof ts==='string'&&id.indexOf('gym_')===0){ const dt=new Date(ts); if(!isNaN(dt)) logw[weekId(dt)]=(logw[weekId(dt)]||0)+1; } }
+  const gymW={}; new Set([...Object.keys(legacy),...Object.keys(logw)]).forEach(w=>{ gymW[w]= logw[w]>0?logw[w]:(+legacy[w]||0); });
+  const gyms=Object.values(gymW);
   return {walkDays,bestSteps,totalSteps,totalKm:Math.round(totalKmv),nightsTarget,restedReady,dawnDays,winterWalks,seasons:Object.keys(seasons).length,
     stretchDays:Object.keys(stretchData.dates||{}).length, stretchStreak:longestStretchStreak(),
-    totalGym:gyms.reduce((a,b)=>a+b,0),bestStreak:longestStreakGrace(),bestWeekSteps:Math.max(0,...Object.values(wk)),bestGymWeek:Math.max(0,...gyms),gymGoalWeeks:gyms.filter(c=>c>=GOAL.gym).length}; }
+    totalGym:gyms.reduce((a,b)=>a+b,0),bestStreak:longestStreakGrace(),bestWeekSteps:Math.max(0,...Object.values(wk)),bestGymWeek:Math.max(0,...gyms,0),gymGoalWeeks:gyms.filter(c=>c>=GOAL.gym).length}; }
 function trophyShelf(){ const h=historyStats(); const got=TROPHIES.filter(t=>t.test(h)).length;
   const rank=rankOf(got);
   return `<div class="ovrow" style="margin-top:20px"><span>Trophy shelf · <b>${rank}</b></span><span style="color:var(--text-faint);font-size:12px">${got}/${TROPHIES.length} earned</span></div>`
@@ -1128,7 +1131,7 @@ const RENDER={
       +`</div>`;
     h+='<div class="ovrow" style="margin-top:18px"><span>This week</span></div>'+weekStrip()+stretchBlock();
     const wkk=weekId(new Date()); const cur=gymCountForWeek(wkk);
-    const hist=Object.entries(store.gymWeeks||{}).sort((a,b)=>a[0]<b[0]?-1:1).slice(-11);
+    const hist=Object.entries(store.gymWeeks||{}).filter(([w])=>w!==wkk).sort((a,b)=>a[0]<b[0]?-1:1).slice(-11);   // drop current week from history so it isn't shown/counted twice
     const all=hist.concat([[wkk,cur]]); const hits=all.filter(([,c])=>c>=GOAL.gym).length;
     h+='<div class="ovrow" style="margin-top:18px"><span>Gym history</span></div>'
       +ovbars(all.map(([w,c])=>({v:c,lbl:w.slice(8)+'/'+w.slice(5,7),hi:c>=GOAL.gym})))
