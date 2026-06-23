@@ -60,6 +60,18 @@
   @keyframes wxfall{to{transform:translateY(128vh)}}
   @keyframes wxsnow{to{transform:translateY(122vh) translateX(20px)}}
   @media (prefers-reduced-motion:reduce){#wx i{animation:none!important;opacity:0!important}}
+  /* weather-on-anything overlay — reads over a photo as well as a gradient: a top-down overcast wash + gentle clouds drifting in from the upper edges. Sits above the backdrop, below the rain and cards. */
+  #wxlay{position:fixed;left:-2%;right:-2%;top:-2%;bottom:-2%;z-index:-1;pointer-events:none;overflow:hidden;opacity:0;transition:opacity 1.6s ease}
+  body.wxfx #wxlay{opacity:1}
+  #wxlay::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(190,198,212,var(--wash,0)) 0%,transparent 52%);transition:background 1.6s linear}
+  body.wx-fog #wxlay::before{background:linear-gradient(180deg,rgba(216,220,228,calc(var(--wash,0) + .14)) 0%,rgba(216,220,228,calc(var(--wash,0) * .55)) 58%,rgba(216,220,228,calc(var(--wash,0) + .12)) 100%)}
+  .roll{position:absolute;top:-14%;width:64%;height:48%;border-radius:50%;filter:blur(16px);will-change:transform;
+    background:radial-gradient(56% 56% at 50% 42%, rgba(248,250,252,.62), rgba(248,250,252,0) 72%)}
+  .roll.l{left:-20%;animation:roll-l 84s ease-in-out infinite}
+  .roll.r{right:-20%;top:-18%;width:56%;animation:roll-r 102s ease-in-out infinite}
+  @keyframes roll-l{0%,100%{transform:translate3d(-4%,0,0)}50%{transform:translate3d(17%,3%,0)}}
+  @keyframes roll-r{0%,100%{transform:translate3d(4%,0,0)}50%{transform:translate3d(-15%,2%,0)}}
+  @media (prefers-reduced-motion:reduce){.roll{animation:none!important}}
   .wxchip{display:inline-flex;align-items:center;gap:7px;margin-top:8px;font-size:13px;color:var(--text-dim);letter-spacing:.02em}
   .wxchip[hidden]{display:none}
   .wxchip svg{width:17px;height:17px}
@@ -67,7 +79,7 @@
   .wxchip span{color:var(--text-faint)}
   @media (prefers-reduced-motion:reduce){#sky::after{animation:none}}
   /* tab hidden / display asleep: freeze decorative motion so the backdrop stops forcing the glass filter to re-render */
-  body.idle #sky, body.idle #sky::after, body.idle #wx i{animation-play-state:paused}
+  body.idle #sky, body.idle #sky::after, body.idle #wx i, body.idle .roll{animation-play-state:paused}
 
   .num{font-weight:500;line-height:.95}
   .label{font-size:12px;text-transform:uppercase;letter-spacing:.1em;font-weight:500;color:var(--text-dim)}
@@ -311,6 +323,7 @@
 <body>
   <div id="sky"></div>
   <div id="bgimg" aria-hidden="true"></div>
+  <div id="wxlay" aria-hidden="true"><span class="roll l"></span><span class="roll r"></span></div>
   <div id="wx" aria-hidden="true"></div>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="glass-distortion" x="0" y="0" width="100%" height="100%" filterUnits="objectBoundingBox">
     <feTurbulence type="fractalNoise" baseFrequency="0.01 0.012" numOctaves="2" seed="4" result="noise"/>
@@ -444,10 +457,12 @@ function saveBlob(o){ try{ localStorage.setItem('stride', JSON.stringify(o)); re
 const FIREBASE_URL = 'https://stride-dash-c3e2a-default-rtdb.europe-west1.firebasedatabase.app';
 const FIREBASE_KEY = '';   // intentionally empty: the page is public, so the write secret lives ONLY in the phone Shortcuts. Do not put it here.
 const voice = (()=>{ try{ return localStorage.getItem('strideVoice')||'full'; }catch(e){ return 'full'; } })(); // full | subtle | off
-const bgPref = (()=>{ try{ return localStorage.getItem('strideBg')||'auto'; }catch(e){ return 'auto'; } })(); // 'auto' | SKY index | 'img'
-// Background image option — the glass really comes alive over a photo. Swap this URL (or drop assets/mountain.jpg and point here) for your own.
-const BG_IMAGE = 'https://images.pexels.com/photos/417074/pexels-photo-417074.jpeg?auto=compress&cs=tinysrgb&w=2400';
-const wxPref = (()=>{ try{ return localStorage.getItem('strideWx')||'auto'; }catch(e){ return 'auto'; } })(); // 'auto' | forced weather class (preview)
+const bgPref = (()=>{ try{ return localStorage.getItem('strideBg')||'auto'; }catch(e){ return 'auto'; } })(); // 'auto' | SKY index '0'..'8' | 'photo:<id>' (legacy 'img')
+// Photo backgrounds — the glass really comes alive over a photo. Drop a 2560px-wide jpeg in assets/bg/ and add it here.
+const PHOTOS = [ {id:'peak', name:'Alpine', file:'assets/bg/peak.jpg'}, {id:'range', name:'Starlit', file:'assets/bg/range.jpg'} ];
+const isPhoto = bgPref==='img' || bgPref.indexOf('photo:')===0;
+function curPhoto(){ if(!isPhoto) return null; const id = bgPref==='img' ? PHOTOS[0].id : bgPref.slice(6); return PHOTOS.find(p=>p.id===id) || PHOTOS[0]; }
+const wxPref = (()=>{ try{ return localStorage.getItem('strideWx')||'auto'; }catch(e){ return 'auto'; } })(); // 'off' | 'auto' (live) | forced weather class (preview)
 function countUp(el,to,fmt){ fmt=fmt||(v=>Math.round(v));
   if(reduce||silent||!to){ el.textContent=fmt(to); return; }
   const start=performance.now(),dur=900;
@@ -720,7 +735,7 @@ function adaptViz(top,mid,hz){
   });
 }
 function setSky(){
-  if(bgPref==='img'){ const s=document.documentElement.style; s.setProperty('--viz-fb','#2dd4bf'); s.setProperty('--viz2-fb','#5eead4'); return; }   // photo bg: cards keep their own colours; no gradient to read
+  if(isPhoto){ const s=document.documentElement.style; s.setProperty('--viz-fb','#2dd4bf'); s.setProperty('--viz2-fb','#5eead4'); return; }   // photo bg: cards keep their own colours; no gradient to read
   if(bgPref!=='auto'){ const A=SKY[+bgPref]||SKY[4]; paint([...A[1]],[...A[2]],[...A[3]],[...A[4]],A[5]); return; }
   const dn=new Date(); const h=dn.getHours()+dn.getMinutes()/60;
   let A=SKY[0],B=SKY[SKY.length-1];
@@ -729,7 +744,7 @@ function setSky(){
   const mix=i=>A[i].map((v,j)=>L(v,B[i][j]));
   paint(mix(1),mix(2),mix(3),mix(4),+L(A[5],B[5]).toFixed(1));
 }
-try{ document.getElementById('bgimg').style.backgroundImage='url("'+BG_IMAGE+'")'; if(bgPref==='img') document.body.classList.add('bg-image'); }catch(e){}
+try{ const ph=curPhoto(); if(ph){ document.getElementById('bgimg').style.backgroundImage='url("'+ph.file+'")'; document.body.classList.add('bg-image'); } }catch(e){}
 setSky();
 setInterval(setSky, 60000);
 
@@ -755,6 +770,15 @@ function wxParticles(cls){
     h+=`<i style="left:${x.toFixed(2)}%;animation-duration:${dur}s;animation-delay:${delay}s"></i>`; }
   wx.innerHTML=h; document.body.classList.add('wx-on', isSnow?'wx-snow':(cls==='storm'?'wx-storm':'wx-rain'));
 }
+// overcast wash + drifting clouds that read over a photo OR a gradient. Driven by cloud cover; off when weather is off or skies are clear.
+function applyWxFx(){
+  const on = wxPref!=='off' && WX && WX.cls!=='clear';
+  document.body.classList.toggle('wxfx', !!on);
+  document.body.classList.toggle('wx-fog', !!(WX && WX.cls==='fog'));
+  const c = WX ? Math.max(0,Math.min(1,WX.cloud)) : 0;
+  const wash = on ? (WX.cls==='fog' ? .32 : +(c*.32).toFixed(3)) : 0;   // capped so the photo still reads through
+  document.documentElement.style.setProperty('--wash', wash);
+}
 function renderWx(){
   const el=$('wxchip'); if(!el) return;
   if(!WX){ el.hidden=true; return; }
@@ -772,16 +796,17 @@ function wxGeo(cb){
 // forced-weather presets for the settings preview (temp picked to feel seasonally right)
 const WX_FORCE={clear:{code:0,cloud:.05,temp:24},fewclouds:{code:2,cloud:.4,temp:19},cloudy:{code:3,cloud:.95,temp:14},fog:{code:45,cloud:.9,temp:9},rain:{code:63,cloud:.9,temp:12},storm:{code:95,cloud:.95,temp:17},snow:{code:73,cloud:.85,temp:-1}};
 function loadWeather(force){
-  if(wxPref!=='auto' && WX_FORCE[wxPref]){ const f=WX_FORCE[wxPref]; WX={code:f.code,temp:f.temp,cloud:f.cloud,precip:0,isDay:1,cls:wxPref}; setSky(); wxParticles(WX.cls); renderWx(); return; }
+  if(wxPref==='off'){ WX=null; document.body.classList.remove('wxfx','wx-fog','wx-on','wx-rain','wx-storm','wx-snow'); $('wx').innerHTML=''; setSky(); renderWx(); return; }   // weather fully off: no fetch, no fx, no chip
+  if(wxPref!=='auto' && WX_FORCE[wxPref]){ const f=WX_FORCE[wxPref]; WX={code:f.code,temp:f.temp,cloud:f.cloud,precip:0,isDay:1,cls:wxPref}; setSky(); wxParticles(WX.cls); applyWxFx(); renderWx(); return; }
   if(!force){ try{ const c=JSON.parse(localStorage.getItem('strideWxCache')||'null');   // reuse a <15-min-old result so reloads don't re-hit the API
-    if(c && c.wx && (Date.now()-c.at)<15*60000){ WX=c.wx; setSky(); wxParticles(WX.cls); renderWx(); return; } }catch(e){} }
+    if(c && c.wx && (Date.now()-c.at)<15*60000){ WX=c.wx; setSky(); wxParticles(WX.cls); applyWxFx(); renderWx(); return; } }catch(e){} }
   wxGeo(async g=>{ try{
     const u=`https://api.open-meteo.com/v1/forecast?latitude=${g.lat}&longitude=${g.lon}&current=temperature_2m,weather_code,cloud_cover,precipitation,is_day&timezone=auto`;
     const c=(await (await fetch(u)).json()).current; if(!c) return;
     const cloud=(c.cloud_cover||0)/100;
     WX={code:c.weather_code,temp:Math.round(c.temperature_2m),cloud,cls:wxClass(c.weather_code,cloud)};
     try{ localStorage.setItem('strideWxCache', JSON.stringify({at:Date.now(),wx:WX})); }catch(e){}
-    setSky(); wxParticles(WX.cls); renderWx();
+    setSky(); wxParticles(WX.cls); applyWxFx(); renderWx();
   }catch(e){} });
 }
 // loadWeather() is kicked off at the end of the script, after icon()/ICONS are defined
@@ -1206,12 +1231,14 @@ function openSettings(){ const ov=$('overlay'), sheet=ov.querySelector('.sheet')
     +`<div class="setrow"><label>A walk counts at (steps)</label><input id="s-walk" type="number" min="1000" max="15000" step="500" value="${g.walkSteps}"></div>`
     +`<div class="setrow"><label>Training days / week</label><select id="s-days"><option value="4">4</option><option value="5">5</option></select></div>`
     +`<div class="setrow"><label>Voice <span style="color:var(--text-faint)">— how chatty</span></label><select id="s-voice"><option value="full">Full</option><option value="subtle">Subtle</option><option value="off">Off</option></select></div>`
-    +`<div class="ovrow" style="margin-top:18px"><span>Background</span><span style="color:var(--text-faint);font-size:12px">tap to pin, or Auto</span></div>`
+    +`<div class="ovrow" style="margin-top:18px"><span>Gradient background</span><span style="color:var(--text-faint);font-size:12px">tap to pin, or Auto</span></div>`
     +'<div class="bggrid">'+`<button class="bgsw${bgPref==='auto'?' on':''}" data-bg="auto"><span class="bgauto">Auto</span><span class="bgl">Time of day</span></button>`
-      +['Night','Dawn','Sunrise','Morning','Midday','Afternoon','Golden','Sunset','Dusk'].map((n,i)=>{const A=SKY[i];return `<button class="bgsw${bgPref===String(i)?' on':''}" data-bg="${i}"><span class="bgprev" style="background:linear-gradient(180deg,rgb(${A[1]}),rgb(${A[2]}) 46%,rgb(${A[3]}))"></span><span class="bgl">${n}</span></button>`;}).join('')
-      +`<button class="bgsw${bgPref==='img'?' on':''}" data-bg="img"><span class="bgprev" style="background:url('${BG_IMAGE}') center/cover"></span><span class="bgl">Photo</span></button>`+'</div>'
-    +`<div class="ovrow" style="margin-top:18px"><span>Weather <span style="color:var(--text-faint);font-size:12px">— preview</span></span><span style="color:var(--text-faint);font-size:12px">overrides live weather</span></div>`
-    +'<div class="bggrid">'+`<button class="bgsw${wxPref==='auto'?' on':''}" data-wx="auto"><span class="bgauto">Auto</span><span class="bgl">Live</span></button>`
+      +['Night','Dawn','Sunrise','Morning','Midday','Afternoon','Golden','Sunset','Dusk'].map((n,i)=>{const A=SKY[i];return `<button class="bgsw${bgPref===String(i)?' on':''}" data-bg="${i}"><span class="bgprev" style="background:linear-gradient(180deg,rgb(${A[1]}),rgb(${A[2]}) 46%,rgb(${A[3]}))"></span><span class="bgl">${n}</span></button>`;}).join('')+'</div>'
+    +`<div class="ovrow" style="margin-top:18px"><span>Photo background</span><span style="color:var(--text-faint);font-size:12px">the glass refracts it</span></div>`
+    +'<div class="bggrid">'+PHOTOS.map(p=>`<button class="bgsw${(bgPref==='photo:'+p.id || (bgPref==='img'&&p.id===PHOTOS[0].id))?' on':''}" data-bg="photo:${p.id}"><span class="bgprev" style="background:url('${p.file}') center/cover"></span><span class="bgl">${p.name}</span></button>`).join('')+'</div>'
+    +`<div class="ovrow" style="margin-top:18px"><span>Weather</span><span style="color:var(--text-faint);font-size:12px">on the background</span></div>`
+    +'<div class="bggrid">'+`<button class="bgsw${wxPref==='off'?' on':''}" data-wx="off"><span class="bgauto">Off</span><span class="bgl">None</span></button>`
+      +`<button class="bgsw${wxPref==='auto'?' on':''}" data-wx="auto"><span class="bgauto">Auto</span><span class="bgl">Live</span></button>`
       +[['clear','Clear'],['fewclouds','Partly'],['cloudy','Overcast'],['fog','Fog'],['rain','Rain'],['storm','Storm'],['snow','Snow']].map(([k,n])=>`<button class="bgsw${wxPref===k?' on':''}" data-wx="${k}"><span class="bgprev" style="display:grid;place-items:center">${icon(WX_ICON[k],22)}</span><span class="bgl">${n}</span></button>`).join('')+'</div>'
     +`<button class="savebtn" id="s-save">Save targets</button>`
     +`<div class="note" style="margin-top:12px;text-transform:none;letter-spacing:0">Saved on this device. Change these any time as your goals evolve.</div>`;
