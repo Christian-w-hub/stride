@@ -1,5 +1,9 @@
 # STRIDE — setup (final architecture)
 
+> **Building the shortcuts? Follow [ACTIVATE.md](ACTIVATE.md) — it's the canonical, simplest
+> step-by-step (keyless, the phone sends only raw numbers).** This file is the background:
+> the architecture, the Firebase project, and the optional gym-by-location automation.
+
 A web dashboard that lives always-on on your iPad **and** iPhone, fed automatically
 from Apple Health. No app install, no developer account, no 7-day expiry, free.
 
@@ -81,11 +85,10 @@ New Shortcut named **Stride Sync**. Actions:
 3. **Find Health Samples** → Sleep Analysis, last night → hours → save `sleep`.
 4. **Hourly buckets** (for the movement clock): **Repeat 24** → each hour: Find Steps in
    that hour → Sum → Add to Variable `hourly`; after the loop, **Combine** with commas.
-5. **Walk** = `dist ≥ 1.2` → `1`, else `0` (an **If**). (Auto — a real walk adds >1km, a
-   bin trip doesn't. No telling it anything.)
-6. **Get Contents of URL** (PUT) → `DB_URL/stride/days/<TODAY yyyy-MM-dd>.json?auth=KEY`
-   → Request Body (JSON): `{steps, dist, sleep, walk, hours:[…]}`.
-7. **Get Contents of URL** (PUT) → `DB_URL/stride/updated.json?auth=KEY` → Body: current
+5. **Get Contents of URL** (PUT) → `DB_URL/stride/days/<TODAY yyyy-MM-dd>.json?auth=KEY`
+   → Request Body (JSON): `{steps, dist, sleep, hours:[…]}`. **Do not compute `walk`** — the
+   app derives it from the raw distance/steps you send (the keep-the-phone-dumb rule).
+6. **Get Contents of URL** (PUT) → `DB_URL/stride/updated.json?auth=KEY` → Body: current
    time as a number.
 
 Then: **Automation → When iPhone is Unlocked → Run Immediately** (turn off Ask Before
@@ -171,8 +174,7 @@ Apple Health data. One **Shortcut "Stride Backfill"**, run once:
     **km**; ÷1000 if your locale returns metres — check one day first).
   - **Sleep:** *Find Health Samples* → Sleep Analysis for the night ending on `Day` → total
     asleep → **hours**. If no sample, skip the field.
-  - *If* distance ≥ 1.2 → `walk` = `true`, else `false`.
-  - *Dictionary* `{steps, dist, sleep, walk}` (omit `sleep` if none) → *Get Contents of
+  - *Dictionary* `{steps, dist, sleep}` (omit `sleep` if none; **no `walk`** — the app derives it) → *Get Contents of
     URL* `DB_URL/stride/days/[DayKey].json?auth=SECRET`, **PUT**, Body = the dictionary.
   - *Wait 0.3 seconds* (gentle on rate limits).
 - **After the loop:** one *Get Contents of URL* `DB_URL/stride/updated.json?auth=SECRET`,
