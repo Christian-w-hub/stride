@@ -33,16 +33,16 @@
   body{
     font-family:var(--font); font-weight:400; color:var(--text); font-variant-numeric:tabular-nums;
     -webkit-font-smoothing:antialiased; min-height:100%; background:transparent;   /* transparent so the fixed sky/photo layer (z-index:-2) shows; html holds the dark fallback */
-    padding:max(22px,env(safe-area-inset-top)) clamp(16px,3vw,34px) 30px;
+    padding:calc(max(22px,env(safe-area-inset-top)) + 20px) clamp(16px,3vw,34px) max(30px,env(safe-area-inset-bottom));
     -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;   /* kiosk feel: no accidental text-select / long-press menus on a display */
   }
   input,textarea,select{-webkit-user-select:auto; user-select:auto}   /* but keep the settings fields usable */
   /* living sky — time-of-day gradient + a slow-drifting sun glow. top/bottom overscan so it always fills (incl. iOS safe areas) */
-  #sky{position:fixed;left:-2%;right:-2%;top:-2%;bottom:calc(-2% - env(safe-area-inset-bottom));z-index:-2;pointer-events:none;transition:background 4s linear;will-change:transform;
+  #sky{position:fixed;left:-2%;right:-2%;top:-2vh;height:calc(104vh + env(safe-area-inset-bottom));z-index:-2;pointer-events:none;transition:background 4s linear;will-change:transform;
     background:linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 46%, var(--sky-horizon) 100%);
     animation:skyflow 60s ease-in-out infinite alternate;}
   /* optional photo background — the glass refracts it. Static (no drift) so the filter caches and runs cool */
-  #bgimg{position:fixed;left:-2%;right:-2%;top:-2%;bottom:calc(-2% - env(safe-area-inset-bottom));z-index:-2;pointer-events:none;background-size:cover;background-position:center;opacity:0;transition:opacity .6s}
+  #bgimg{position:fixed;left:-2%;right:-2%;top:-2vh;height:calc(104vh + env(safe-area-inset-bottom));z-index:-2;pointer-events:none;background-size:cover;background-position:center;opacity:0;transition:opacity .6s}
   body.bg-image #bgimg{opacity:1}
   body.bg-image #sky{opacity:0}
   @keyframes skyflow{0%{transform:scale(1.16) translateY(-4.5%)}50%{transform:scale(1.22) translateY(3%)}100%{transform:scale(1.16) translateY(-4.5%)}}
@@ -61,7 +61,7 @@
   @keyframes wxsnow{to{transform:translateY(122vh) translateX(20px)}}
   @media (prefers-reduced-motion:reduce){#wx i{animation:none!important;opacity:0!important}}
   /* weather-on-anything overlay — reads over a photo as well as a gradient: a top-down overcast wash + gentle clouds drifting in from the upper edges. Sits above the backdrop, below the rain and cards. */
-  #wxlay{position:fixed;left:-2%;right:-2%;top:-2%;bottom:calc(-2% - env(safe-area-inset-bottom));z-index:-1;pointer-events:none;overflow:hidden;opacity:0;transition:opacity 1.6s ease}
+  #wxlay{position:fixed;left:-2%;right:-2%;top:-2vh;height:calc(104vh + env(safe-area-inset-bottom));z-index:-1;pointer-events:none;overflow:hidden;opacity:0;transition:opacity 1.6s ease}
   body.wxfx #wxlay{opacity:1}
   #wxlay::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(190,198,212,var(--wash,0)) 0%,transparent 52%);transition:background 1.6s linear}
   body.wx-fog #wxlay::before{background:linear-gradient(180deg,rgba(216,220,228,calc(var(--wash,0) + .14)) 0%,rgba(216,220,228,calc(var(--wash,0) * .55)) 58%,rgba(216,220,228,calc(var(--wash,0) + .12)) 100%)}
@@ -102,8 +102,8 @@
   }
   /* liquid glass: distorted blurred backdrop + crisp colour overlay + specular rim (layered so only the backdrop refracts) */
   .glassfx{position:absolute;inset:0;border-radius:inherit;pointer-events:none}
-  .gf-filter{z-index:0;backdrop-filter:blur(3.45px) url(#glass-distortion) saturate(165%) brightness(.92);-webkit-backdrop-filter:blur(5.75px) saturate(165%) brightness(.92)}
-  .gf-overlay{z-index:1;background:linear-gradient(160deg, rgba(8,10,16,.324), rgba(8,10,16,.108) 72%), color-mix(in srgb, var(--ca,#8aa) 9%, transparent)}
+  .gf-filter{z-index:0;backdrop-filter:blur(7px) url(#glass-distortion) saturate(165%) brightness(.9);-webkit-backdrop-filter:blur(9px) saturate(165%) brightness(.9)}
+  .gf-overlay{z-index:1;background:linear-gradient(160deg, rgba(8,10,16,.42), rgba(8,10,16,.16) 72%), color-mix(in srgb, var(--ca,#8aa) 9%, transparent)}
   /* rounded-box edge lighting ported from the WebGL lens: bright top rim, defined sides + base, inner top glow */
   .gf-specular{z-index:2;box-shadow:
     inset 0 1.5px 1px rgba(255,255,255,.66),
