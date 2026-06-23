@@ -464,6 +464,7 @@ if(!store.days || typeof store.days!=='object' || Array.isArray(store.days)) sto
 store.gymWeeks = (store.gymWeeks && typeof store.gymWeeks==='object') ? store.gymWeeks : {};
 store.gymManual = (store.gymManual && typeof store.gymManual==='object') ? store.gymManual : {};  // {dateKey:true} manual gym logs (fail-safe)
 store.gymLog = (store.gymLog && typeof store.gymLog==='object' && !Array.isArray(store.gymLog)) ? store.gymLog : {};  // {id: ISO ts} append-only session log — robust to offline gaps + cross-device, source of truth for gym count
+store.stretch = (store.stretch && typeof store.stretch==='object' && !Array.isArray(store.stretch)) ? store.stretch : {};  // {dateKey: true} evening-stretch sign-offs — synced + merged across devices
 const now = new Date(); const key = todayKey(now);
 
 if (p.toString().length>0){
@@ -814,6 +815,7 @@ function applyRemote(remote){
     merged.days     = Object.assign({}, L.days||{}, rdays);          // remote days win per-day; local-only days kept
     merged.gymWeeks = Object.assign({}, remote.gymWeeks||{}, L.gymWeeks||{});
     merged.gymLog   = remote.gymLog!=null ? Object.assign({}, remote.gymLog) : (L.gymLog||{});  // remote-authoritative session log (undo/deletes propagate)
+    merged.stretch  = Object.assign({}, remote.stretch||{}, L.stretch||{});   // union: a stretch sign-off on any device is kept everywhere
     if(remote.gymWeek!=null) merged.gymWeek = remote.gymWeek;
     merged.updated  = Date.now();   // the dashboard stamps freshness when it sees new data — the phone never has to send a timestamp
     merged.celebrated = L.celebrated||remote.celebrated||{};         // never replay celebrations
@@ -1071,8 +1073,12 @@ function weekStrip(){ const sc=schedule(); const sh=schedShift(); const ds=['M',
   return '<div class="weekplan">'+ds.map((d,i)=>{ const k=sc[((i-sh)%7+7)%7]; return `<div class="wp${i===cur?' now':''}"><div class="wpd">${d}</div><div class="wpk ${k==='cardio'?'k-cardio':k==='rest'?'k-rest':'k-sess'}">${k==='cardio'?'CRD':k==='rest'?'·':k}</div></div>`; }).join('')+'</div>'; }
 
 // ===== evening stretch (stiff-beginner; see docs/stretching-plan.md) =====
-let stretchData={}; try{ stretchData=JSON.parse(localStorage.getItem('strideStretch')||'{}'); }catch(e){} stretchData.dates=stretchData.dates||{};
-function saveStretch(){ try{ localStorage.setItem('strideStretch', JSON.stringify(stretchData)); }catch(e){} }
+let stretchData={}; try{ stretchData=JSON.parse(localStorage.getItem('strideStretch')||'{}'); }catch(e){}
+if(stretchData.dates){ for(const k in stretchData.dates) store.stretch[k]=true; }   // one-time migrate legacy local dates into the synced store
+stretchData.dates = store.stretch;   // alias — all stretch dates now live in (and sync via) the store
+function saveStretch(){ try{ localStorage.setItem('strideStretch', JSON.stringify({vid:stretchData.vid||0})); }catch(e){} }   // only the chosen-video pref is local now; dates ride the store
+function pushStretch(dk,on){ if(!FIREBASE_URL) return; try{ const base=FIREBASE_URL.replace(/\/+$/,'');
+  fetch(base+'/stride/stretch/'+dk+'.json', on?{method:'PUT',keepalive:true,body:'true'}:{method:'DELETE',keepalive:true}).catch(()=>{}); }catch(e){} }
 function stretchStreak(){ let n=0; const d=new Date(); if(!stretchData.dates[todayKey(d)]) d.setDate(d.getDate()-1); for(;;){ if(stretchData.dates[todayKey(d)]){n++;d.setDate(d.getDate()-1);} else break; } return n; }
 function longestStretchStreak(){ const ks=Object.keys(stretchData.dates||{}).sort(); if(!ks.length) return 0; let best=0,run=0,prev=null;
   ks.forEach(k=>{ if(prev){ const pd=new Date(prev+'T00:00'); pd.setDate(pd.getDate()+1); run=(todayKey(pd)===k)?run+1:1; } else run=1; if(run>best)best=run; prev=k; }); return best; }
@@ -1169,7 +1175,9 @@ function ovRender(id,range){ const body=$('ovBody'); const opts=RANGES[id];
   const bar = opts ? '<div class="ovtabs">'+opts.map(r=>`<button class="ovtab${r===range?' on':''}" data-r="${r}">${RLABEL[r]||r}</button>`).join('')+'</div>' : '';
   body.innerHTML=bar+RENDER[id](range);
   if(opts) body.querySelectorAll('.ovtab').forEach(b=>b.addEventListener('click',()=>ovRender(id,b.dataset.r)));
-  if(id==='gym'){ const dn=body.querySelector('#st-done'); if(dn) dn.onclick=()=>{ stretchData.dates[todayKey(new Date())]=true; saveStretch(); ovRender('gym'); };
+  if(id==='gym'){ const dn=body.querySelector('#st-done'); if(dn) dn.onclick=()=>{ const dk=todayKey(new Date());
+      if(store.stretch[dk]){ delete store.stretch[dk]; pushStretch(dk,false); } else { store.stretch[dk]=true; pushStretch(dk,true); }   // toggle + sync across devices
+      store.updated=Date.now(); saveBlob(store); ovRender('gym'); };
     const nx=body.querySelector('#st-next'); if(nx) nx.onclick=()=>{ stretchData.vid=((stretchData.vid||0)+1)%STRETCH_VIDS.length; saveStretch(); ovRender('gym'); };
     const ps=body.querySelector('#sched-push'); if(ps) ps.onclick=()=>{ setSchedShift(schedShift()+1); refreshGymCard(); ovRender('gym'); };
     const rs=body.querySelector('#sched-reset'); if(rs) rs.onclick=()=>{ setSchedShift(0); refreshGymCard(); ovRender('gym'); };
