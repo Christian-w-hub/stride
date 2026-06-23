@@ -800,7 +800,9 @@ function applyRemote(remote){
     const L=store;
     const cday=d=>{ if(!d||typeof d!=='object') return d; const o=Object.assign({},d);   // coerce remote types so number/string drift can't cause perpetual reloads
       if(o.steps!=null)o.steps=num(o.steps); if(o.dist!=null)o.dist=num(o.dist); if(o.sleep!=null)o.sleep=num(o.sleep);
-      if(o.walk!=null)o.walk=(o.walk===true||o.walk==='true'||o.walk==='1'||(+o.walk>0)); return o; };   // accept true/false/1/0/"true"/"false" from the shortcut (string "false" must NOT read as true)
+      // the shortcut just sends raw numbers; the app decides what counts as a real walk
+      o.walk = (o.walk!=null) ? (o.walk===true||o.walk==='true'||o.walk==='1'||(+o.walk>0))
+                              : ((+o.dist>=1.2)||(+o.steps>=GOAL.walkSteps)); return o; };
     const rdays={}, src=remote.days||{}; for(const k in src) rdays[k]=cday(src[k]);
     const merged=Object.assign({}, L);                              // start from local; adopt only an allowlist of remote keys so a stray top-level key (e.g. _gymArrived, a probe) can't trigger a reload storm
     merged.days     = Object.assign({}, L.days||{}, rdays);          // remote days win per-day; local-only days kept
