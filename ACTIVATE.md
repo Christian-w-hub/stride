@@ -62,42 +62,36 @@ Open **Shortcuts** → tab **Shortcuts** → **＋** (top right) → tap the nam
 
 **8. Set Variable** → name it **DayKey** (value = the Formatted Date from action 7).
 
-**9. If**
-- "If **Input** ..." → tap **Input** → *Insert "Dist"*.
-- Tap the condition → **is greater than** → value `1.2`.
-- Inside the If: add **Text** → type `true`.
-- Tap **Otherwise**: add **Text** → type `false`.
-- (So the If outputs `true` or `false`.) After **End If**, add **Set Variable** → name it
-  **Walk** (value = the **If Result** / the text just produced).
+*(No walk calculation needed — the app works out whether it was a real walk from the steps and
+distance you send. Just send the raw numbers.)*
 
-**10. Get Contents of URL**  ← this sends today's numbers
+**9. Get Contents of URL**  ← this sends today's numbers
 - Tap the URL field and type, inserting DayKey where shown:
   `https://stride-dash-c3e2a-default-rtdb.europe-west1.firebasedatabase.app/stride/days/` *Insert "DayKey"* `.json?auth=KEY`
   (replace `KEY` with your key string).
 - Tap **Show More**.
 - **Method** → **PUT**.
-- **Request Body** → **JSON**. Then **Add new field** four times:
+- **Request Body** → **JSON**. Then **Add new field**:
   - Type **Number**, Key `steps`, Value *Insert "Steps"*
   - Type **Number**, Key `dist`, Value *Insert "Dist"*
   - Type **Number**, Key `sleep`, Value *Insert "Sleep"*  *(skip this row for now — see sleep note)*
-  - Type **Text**, Key `walk`, Value *Insert "Walk"*
 
-**11. Format Date**
+**10. Format Date**
 - **Date** → **Current Date**; format → **ISO 8601**.
 
-**12. Get Contents of URL**  ← tells the dashboard "fresh data, refresh"
+**11. Get Contents of URL**  ← tells the dashboard "fresh data, refresh"
 - URL: `https://stride-dash-c3e2a-default-rtdb.europe-west1.firebasedatabase.app/stride/updated.json?auth=KEY`
 - **Show More** → **Method PUT** → **Request Body** → **Text** → *Insert the ISO date from
-  action 11*.
+  action 10*.
 
 Tap **▶ (Play)** to run. iOS will ask **"Allow Stride Sync to read Steps / Distance?"** →
 **Allow**. Open the dashboard — Activity and Daily walk fill within ~60s.
 
 **Sleep (optional, do it after the rest works):** sleep is the fiddly one in Shortcuts. Add
-before action 10: **Find Health Samples** → type **Sleep Analysis** → **Add Filter** →
+before action 9: **Find Health Samples** → type **Sleep Analysis** → **Add Filter** →
 **Start Date** → **is in the last** `1` `days` → **Calculate Statistics** → **Sum** →
-**Calculate** *that* **÷ 3600** → **Set Variable Sleep**. Then add the `sleep` row in action
-10. If it misbehaves, leave sleep out — the dashboard just shows sleep as blank, which is fine.
+**Calculate** *that* **÷ 3600** → **Set Variable Sleep**. Then add the `sleep` row in action 9.
+If it misbehaves, leave sleep out — the dashboard just shows sleep as blank, which is fine.
 
 **Make it run by itself, silently:**
 - Shortcuts → tab **Automation** → **＋** → **Create Personal Automation**.
@@ -127,10 +121,8 @@ Everything below goes **inside** the Repeat block, above **End Repeat**:
   **Calculate Statistics Sum** → **Set Variable Steps**.
 - **Find Health Samples** Walking + Running Distance → filter **Start Date is** *Insert "Day"*
   → **Calculate Statistics Sum** → **Set Variable Dist** (÷1000 if metres).
-- **If** *Insert "Dist"* **is greater than** `1.2` → **Text** `true`; **Otherwise** **Text**
-  `false` → **End If** → **Set Variable Walk**.
 - **Get Contents of URL**: `…/stride/days/` *Insert "DayKey"* `.json?auth=KEY` → **PUT** →
-  **JSON** → fields: Number `steps`=Steps, Number `dist`=Dist, Text `walk`=Walk.
+  **JSON** → fields: Number `steps`=Steps, Number `dist`=Dist. *(No walk — the app derives it.)*
 - **Wait** → `0.3` seconds.
 
 **3. After End Repeat:** **Format Date** Current Date **ISO 8601** → **Get Contents of URL**
