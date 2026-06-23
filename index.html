@@ -32,15 +32,19 @@
   html{overscroll-behavior:none; background:#0c0d10}   /* no rubber-band bounce; dark base so nothing flashes behind the sky */
   body{
     font-family:var(--font); font-weight:400; color:var(--text); font-variant-numeric:tabular-nums;
-    -webkit-font-smoothing:antialiased; min-height:100%; background:#0c0d10;
+    -webkit-font-smoothing:antialiased; min-height:100%; background:transparent;   /* transparent so the fixed sky/photo layer (z-index:-2) shows; html holds the dark fallback */
     padding:max(22px,env(safe-area-inset-top)) clamp(16px,3vw,34px) 30px;
     -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;   /* kiosk feel: no accidental text-select / long-press menus on a display */
   }
   input,textarea,select{-webkit-user-select:auto; user-select:auto}   /* but keep the settings fields usable */
-  /* living sky — time-of-day gradient + a slow-drifting sun glow */
-  #sky{position:fixed;inset:0;z-index:-2;pointer-events:none;transition:background 4s linear;will-change:transform;
+  /* living sky — time-of-day gradient + a slow-drifting sun glow. top/bottom overscan so it always fills (incl. iOS safe areas) */
+  #sky{position:fixed;left:-2%;right:-2%;top:-2%;bottom:-2%;z-index:-2;pointer-events:none;transition:background 4s linear;will-change:transform;
     background:linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 46%, var(--sky-horizon) 100%);
     animation:skyflow 60s ease-in-out infinite alternate;}
+  /* optional photo background — the glass refracts it. Static (no drift) so the filter caches and runs cool */
+  #bgimg{position:fixed;left:-2%;right:-2%;top:-2%;bottom:-2%;z-index:-2;pointer-events:none;background-size:cover;background-position:center;opacity:0;transition:opacity .6s}
+  body.bg-image #bgimg{opacity:1}
+  body.bg-image #sky{opacity:0}
   @keyframes skyflow{0%{transform:scale(1.16) translateY(-4.5%)}50%{transform:scale(1.22) translateY(3%)}100%{transform:scale(1.16) translateY(-4.5%)}}
   #sky::after{content:"";position:absolute;inset:0;transition:background 4s linear;
     background:radial-gradient(56% 46% at var(--sun-x) var(--sun-y), var(--sun), transparent 62%);
@@ -306,6 +310,7 @@
 </head>
 <body>
   <div id="sky"></div>
+  <div id="bgimg" aria-hidden="true"></div>
   <div id="wx" aria-hidden="true"></div>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="glass-distortion" x="0" y="0" width="100%" height="100%" filterUnits="objectBoundingBox">
     <feTurbulence type="fractalNoise" baseFrequency="0.01 0.012" numOctaves="2" seed="4" result="noise"/>
@@ -439,7 +444,9 @@ function saveBlob(o){ try{ localStorage.setItem('stride', JSON.stringify(o)); re
 const FIREBASE_URL = 'https://stride-dash-c3e2a-default-rtdb.europe-west1.firebasedatabase.app';
 const FIREBASE_KEY = '';   // intentionally empty: the page is public, so the write secret lives ONLY in the phone Shortcuts. Do not put it here.
 const voice = (()=>{ try{ return localStorage.getItem('strideVoice')||'full'; }catch(e){ return 'full'; } })(); // full | subtle | off
-const bgPref = (()=>{ try{ return localStorage.getItem('strideBg')||'auto'; }catch(e){ return 'auto'; } })(); // 'auto' | SKY index
+const bgPref = (()=>{ try{ return localStorage.getItem('strideBg')||'auto'; }catch(e){ return 'auto'; } })(); // 'auto' | SKY index | 'img'
+// Background image option — the glass really comes alive over a photo. Swap this URL (or drop assets/mountain.jpg and point here) for your own.
+const BG_IMAGE = 'https://images.pexels.com/photos/417074/pexels-photo-417074.jpeg?auto=compress&cs=tinysrgb&w=2400';
 const wxPref = (()=>{ try{ return localStorage.getItem('strideWx')||'auto'; }catch(e){ return 'auto'; } })(); // 'auto' | forced weather class (preview)
 function countUp(el,to,fmt){ fmt=fmt||(v=>Math.round(v));
   if(reduce||silent||!to){ el.textContent=fmt(to); return; }
@@ -709,6 +716,7 @@ function adaptViz(top,mid,hz){
   });
 }
 function setSky(){
+  if(bgPref==='img'){ const s=document.documentElement.style; s.setProperty('--viz-fb','#2dd4bf'); s.setProperty('--viz2-fb','#5eead4'); return; }   // photo bg: cards keep their own colours; no gradient to read
   if(bgPref!=='auto'){ const A=SKY[+bgPref]||SKY[4]; paint([...A[1]],[...A[2]],[...A[3]],[...A[4]],A[5]); return; }
   const dn=new Date(); const h=dn.getHours()+dn.getMinutes()/60;
   let A=SKY[0],B=SKY[SKY.length-1];
@@ -717,6 +725,7 @@ function setSky(){
   const mix=i=>A[i].map((v,j)=>L(v,B[i][j]));
   paint(mix(1),mix(2),mix(3),mix(4),+L(A[5],B[5]).toFixed(1));
 }
+try{ document.getElementById('bgimg').style.backgroundImage='url("'+BG_IMAGE+'")'; if(bgPref==='img') document.body.classList.add('bg-image'); }catch(e){}
 setSky();
 setInterval(setSky, 60000);
 
@@ -1188,7 +1197,8 @@ function openSettings(){ const ov=$('overlay'), sheet=ov.querySelector('.sheet')
     +`<div class="setrow"><label>Voice <span style="color:var(--text-faint)">— how chatty</span></label><select id="s-voice"><option value="full">Full</option><option value="subtle">Subtle</option><option value="off">Off</option></select></div>`
     +`<div class="ovrow" style="margin-top:18px"><span>Background</span><span style="color:var(--text-faint);font-size:12px">tap to pin, or Auto</span></div>`
     +'<div class="bggrid">'+`<button class="bgsw${bgPref==='auto'?' on':''}" data-bg="auto"><span class="bgauto">Auto</span><span class="bgl">Time of day</span></button>`
-      +['Night','Dawn','Sunrise','Morning','Midday','Afternoon','Golden','Sunset','Dusk'].map((n,i)=>{const A=SKY[i];return `<button class="bgsw${bgPref===String(i)?' on':''}" data-bg="${i}"><span class="bgprev" style="background:linear-gradient(180deg,rgb(${A[1]}),rgb(${A[2]}) 46%,rgb(${A[3]}))"></span><span class="bgl">${n}</span></button>`;}).join('')+'</div>'
+      +['Night','Dawn','Sunrise','Morning','Midday','Afternoon','Golden','Sunset','Dusk'].map((n,i)=>{const A=SKY[i];return `<button class="bgsw${bgPref===String(i)?' on':''}" data-bg="${i}"><span class="bgprev" style="background:linear-gradient(180deg,rgb(${A[1]}),rgb(${A[2]}) 46%,rgb(${A[3]}))"></span><span class="bgl">${n}</span></button>`;}).join('')
+      +`<button class="bgsw${bgPref==='img'?' on':''}" data-bg="img"><span class="bgprev" style="background:url('${BG_IMAGE}') center/cover"></span><span class="bgl">Photo</span></button>`+'</div>'
     +`<div class="ovrow" style="margin-top:18px"><span>Weather <span style="color:var(--text-faint);font-size:12px">— preview</span></span><span style="color:var(--text-faint);font-size:12px">overrides live weather</span></div>`
     +'<div class="bggrid">'+`<button class="bgsw${wxPref==='auto'?' on':''}" data-wx="auto"><span class="bgauto">Auto</span><span class="bgl">Live</span></button>`
       +[['clear','Clear'],['fewclouds','Partly'],['cloudy','Overcast'],['fog','Fog'],['rain','Rain'],['storm','Storm'],['snow','Snow']].map(([k,n])=>`<button class="bgsw${wxPref===k?' on':''}" data-wx="${k}"><span class="bgprev" style="display:grid;place-items:center">${icon(WX_ICON[k],22)}</span><span class="bgl">${n}</span></button>`).join('')+'</div>'
