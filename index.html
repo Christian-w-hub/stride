@@ -809,11 +809,11 @@ function applyRemote(remote){
     merged.gymWeeks = Object.assign({}, remote.gymWeeks||{}, L.gymWeeks||{});
     merged.gymLog   = remote.gymLog!=null ? Object.assign({}, remote.gymLog) : (L.gymLog||{});  // remote-authoritative session log (undo/deletes propagate)
     if(remote.gymWeek!=null) merged.gymWeek = remote.gymWeek;
-    merged.updated  = remote.updated!=null ? remote.updated : L.updated;   // banner freshness only; accept an ISO string or a number
+    merged.updated  = Date.now();   // the dashboard stamps freshness when it sees new data — the phone never has to send a timestamp
     merged.celebrated = L.celebrated||remote.celebrated||{};         // never replay celebrations
     const gm=Object.assign({}, L.gymManual||{}); for(const id in (merged.gymLog||{})) if(id.indexOf('gym_')===0 && merged.gymLog[id]) gm[id.slice(4)]=true; merged.gymManual=gm;  // derive "logged today" from the log → correct on any device
     const sig=o=>{ const c=Object.assign({},o); delete c.updated; delete c.gymManual; return stable(c); };  // a reload is warranted only by a visible change, not by `updated`/derived state
-    if(sig(merged)===sig(L)){ if(merged.updated!==L.updated){ saveBlob(merged); } return; }   // content unchanged but a fresh sync arrived → record it for the banner, no reload
+    if(sig(merged)===sig(L)) return;   // nothing actually changed → don't save, reload, or advance freshness
     saveBlob(merged);
   }catch(e){ return; }
   scheduleReload();
@@ -831,7 +831,7 @@ function startFirebase(){ if(!FIREBASE_URL) return; const base=FIREBASE_URL.repl
     es.addEventListener('put', onEv); es.addEventListener('patch', onEv);
   }catch(e){} }
   pullFirebase();
-  setInterval(()=>{ fetch(base+'/stride/updated.json',{cache:'no-store'}).then(r=> r.ok ? r.json() : null).then(u=>{ if(u==null||u===_fbU) return; _fbU=u; pullFirebase(); }).catch(()=>{}); }, 60000);   // string-safe (updated is an ISO stamp)
+  setInterval(pullFirebase, 120000);   // backup poll (EventSource is primary, instant); applyRemote only reloads on a real change
 }
 startFirebase();
 
