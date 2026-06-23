@@ -1,144 +1,176 @@
-# Activate Stride — iPhone setup (~15 min, one sitting)
+# Activate Stride — iPhone Shortcuts (step by step)
 
-Everything in the app is built and live. The only thing left is to let your **iPhone** send
-its Health + location to the dashboard. iOS sandboxes Health, so this can only be done with
-the built-in **Shortcuts** app — no third-party app, no code.
+iOS only lets the built-in **Shortcuts** app read Health, so your data reaches the dashboard
+through Shortcuts. You'll build **3 shortcuts**. After the first runs once, today's numbers
+show on the dashboard within a minute.
 
-You'll build **3 shortcuts** (plus optional ones). After the first runs once, today's numbers
-appear on the dashboard within a minute.
+**Conventions in this guide**
+- **Bold** = the exact action name to search for in Shortcuts (tap **＋ Add Action**, type it).
+- "Set X to Y" = tap the highlighted blue field in that action and choose Y.
+- *Insert "Name"* = tap **Select Variable** (or the variables bar above the keyboard) and pick
+  the variable you made earlier with that name.
 
-Your database URL (used in every step below):
-
+Your database address (used in the URLs):
 ```
 https://stride-dash-c3e2a-default-rtdb.europe-west1.firebasedatabase.app
 ```
 
 ---
 
-## Step 0 — get your write key (2 min)
+## Step 0 — get your write key (once)
 
-Reading is open, but **writing** steps/sleep/distance needs a key (so randoms can't write to
-your data). Get it once:
+Writing needs a key so strangers can't write to your data (reading is open).
 
-1. Firebase console → your **stride-dash** project → ⚙️ **Project settings**.
-2. **Service accounts** tab → **Database secrets** (left sub-menu) → **Show** → copy the long
-   string. That's your `KEY`.
-   - If "Database secrets" isn't shown, click **Manage service accounts / legacy** or enable
-     it; new projects sometimes hide it. If you genuinely can't get one, tell me and I'll
-     switch the rules to keyless writes (simpler, slightly less private) — then you skip the
-     `?auth=KEY` everywhere below.
+1. **console.firebase.google.com** → your **stride-dash** project.
+2. Gear icon → **Project settings** → **Service accounts** tab → **Database secrets**.
+3. Tap **Show**, copy the long string. That is your **KEY**.
 
-Wherever you see `KEY` below, paste that string. **Keep it only in Shortcuts — never anywhere
-public.**
+Keep KEY only inside Shortcuts. (If you can't find Database secrets — some new projects hide
+it — message me and I'll switch the rules so no key is needed.)
 
 ---
 
-## Shortcut 1 — "Stride Sync" (the core: today's Health → dashboard)
+## Shortcut 1 — "Stride Sync" (today's Health → dashboard)
 
-Shortcuts app → **+** (new shortcut) → name it **Stride Sync**. Add these actions in order
-(tap **+ Add Action**, search the name):
+Open **Shortcuts** → tab **Shortcuts** → **＋** (top right) → tap the name field → call it
+**Stride Sync**. Now add these actions in order:
 
-1. **Find Health Samples** → Steps → set **Sample where** Start Date **is Today**.
-2. **Calculate Statistics** → operation **Sum** → input the Health Samples → this is your step
-   total. (Tap the result chip later to insert it.) Call it `Steps`.
-3. **Find Health Samples** → Walking + Running Distance → **is Today** →
-   **Calculate Statistics → Sum** → `Dist`. (If it comes back in metres, add a **Calculate** →
-   `Dist ÷ 1000` so it's km.)
-4. **Find Health Samples** → Sleep Analysis → for last night (Start Date **is in the last 1
-   day**) → **Calculate Statistics → Sum** of durations → **Calculate** → `÷ 3600` to get
-   hours → `Sleep`. (If no sleep data, that's fine — see the note.)
-5. **Text** → type the date format `yyyy-MM-dd`. Then **Format Date** → Current Date → Custom →
-   paste that format, **timezone = your local** → `DayKey`.
-6. **If** `Dist` **is greater than** `1.2` → **Text** `true` ; **Otherwise** → **Text**
-   `false` → call it `Walk`. (A "real walk" = ≥1.2 km, matching the app default.)
-7. **Dictionary** → add keys:
-   - `steps` → `Steps`
-   - `dist` → `Dist`
-   - `sleep` → `Sleep`
-   - `walk` → `Walk`
-   (Leave `sleep` out only if you have no sleep tracking.)
-8. **Get Contents of URL**:
-   - URL: `https://stride-dash-c3e2a-default-rtdb.europe-west1.firebasedatabase.app/stride/days/[DayKey].json?auth=KEY`
-   - Method: **PUT**
-   - Request Body: **JSON** → the **Dictionary** from step 7.
-9. **Get Contents of URL** (this is what makes the dashboard refresh):
-   - URL: `https://stride-dash-c3e2a-default-rtdb.europe-west1.firebasedatabase.app/stride/updated.json?auth=KEY`
-   - Method: **PUT**
-   - Request Body: **Text** → **Current Date** formatted as **Unix time** (or any big number).
+**1. Find Health Samples**
+- Tap **Steps** is already the type? If not, tap the type and choose **Steps**.
+- Tap **Add Filter** → **Start Date** → **is today**.
 
-Run it once (▶). The first time, iOS asks **"Allow Shortcuts to read Steps / Sleep /
-Distance?"** → **Allow**. Then open the dashboard — today's Activity/Sleep/Walk should fill
-within ~60s.
+**2. Calculate Statistics**
+- It reads "Calculate **Average** of **Health Samples**". Tap **Average** → choose **Sum**.
+  (Leave the input as the Health Samples from action 1.)
 
-**Make it automatic + silent:** Shortcuts → **Automation** → **+** →
-- **When I unlock iPhone** → Run **Stride Sync** → **Run Immediately**, **Notify When Run = OFF**.
-- Add 2–3 **Time of Day** automations (e.g. 9am, 2pm, 8pm) → same shortcut, same settings.
+**3. Set Variable**
+- "Set Variable **Variable** to **Statistics**". Tap **Variable**, name it **Steps**.
 
-Now it pushes fresh data many times a day, in the background, no banners.
+**4. Find Health Samples**
+- Tap the type → **Walking + Running Distance**.
+- **Add Filter** → **Start Date** → **is today**.
 
----
+**5. Calculate Statistics** → set to **Sum**.
 
-## Shortcut 2 — "Stride Backfill" (one run: fill your history)
+**6. Set Variable** → name it **Dist**.
+- (Distance usually comes in km already. If your numbers look ~1000× too big, it's in metres
+  — add a **Calculate** action: *Insert "Dist"* **÷ 1000**, then Set Variable **Dist** to that.)
 
-So the trends/streaks aren't empty. New shortcut → **Stride Backfill**:
+**7. Format Date**
+- "Format **Date** Date Format **...**". Tap **Date** → choose **Current Date**.
+- Tap the format → **Custom** → in **Format String** type exactly: `yyyy-MM-dd`.
 
-1. **Number** → `90` (days to backfill). Call it `N`.
-2. **Repeat** `N` times. Inside the loop (`Repeat Index` = 1, 2, 3 …):
-   - **Current Date** → **Adjust Date** → **Subtract** `Repeat Index` **Days** → `Day`.
-     (Index 1 = yesterday; today is owned by Stride Sync.)
-   - **Format Date** (`Day`, `yyyy-MM-dd`, local tz) → `DayKey`.
-   - **Find Health Samples** Steps where date **is** `Day` → **Calculate Statistics → Sum** → `Steps`.
-   - **Find Health Samples** Walking+Running Distance, `Day` → **Sum** → `Dist` (÷1000 if metres).
-   - **Find Health Samples** Sleep Analysis for the night ending `Day` → **Sum** → ÷3600 → `Sleep`.
-   - **If** `Dist > 1.2` → `Walk` = `true`, else `false`.
-   - **Dictionary** `{steps, dist, sleep, walk}` (omit `sleep` if none that day).
-   - **Get Contents of URL** → `…/stride/days/[DayKey].json?auth=KEY` → **PUT** → JSON = Dictionary.
-   - **Wait** `0.3` seconds (gentle on the database).
-3. **After the loop:** one **Get Contents of URL** → `…/stride/updated.json?auth=KEY` → **PUT** →
-   Body = Current Date as Unix time. (This triggers the dashboard to pull everything in.)
+**8. Set Variable** → name it **DayKey** (value = the Formatted Date from action 7).
 
-Run it once. 90 days takes a minute or two. Don't backfill past ~1–2 years (the app keeps 5).
+**9. If**
+- "If **Input** ..." → tap **Input** → *Insert "Dist"*.
+- Tap the condition → **is greater than** → value `1.2`.
+- Inside the If: add **Text** → type `true`.
+- Tap **Otherwise**: add **Text** → type `false`.
+- (So the If outputs `true` or `false`.) After **End If**, add **Set Variable** → name it
+  **Walk** (value = the **If Result** / the text just produced).
 
----
+**10. Get Contents of URL**  ← this sends today's numbers
+- Tap the URL field and type, inserting DayKey where shown:
+  `https://stride-dash-c3e2a-default-rtdb.europe-west1.firebasedatabase.app/stride/days/` *Insert "DayKey"* `.json?auth=KEY`
+  (replace `KEY` with your key string).
+- Tap **Show More**.
+- **Method** → **PUT**.
+- **Request Body** → **JSON**. Then **Add new field** four times:
+  - Type **Number**, Key `steps`, Value *Insert "Steps"*
+  - Type **Number**, Key `dist`, Value *Insert "Dist"*
+  - Type **Number**, Key `sleep`, Value *Insert "Sleep"*  *(skip this row for now — see sleep note)*
+  - Type **Text**, Key `walk`, Value *Insert "Walk"*
 
-## Shortcut 3 — Movement reminders (the alerts, on your phone)
+**11. Format Date**
+- **Date** → **Current Date**; format → **ISO 8601**.
 
-Calm nudges if you haven't walked. New shortcut → **Stride Nudge**:
+**12. Get Contents of URL**  ← tells the dashboard "fresh data, refresh"
+- URL: `https://stride-dash-c3e2a-default-rtdb.europe-west1.firebasedatabase.app/stride/updated.json?auth=KEY`
+- **Show More** → **Method PUT** → **Request Body** → **Text** → *Insert the ISO date from
+  action 11*.
 
-1. **Format Date** (Current Date, `yyyy-MM-dd`, local) → `DayKey`.
-2. **Get Contents of URL** → `…/stride/days/[DayKey].json` → **GET** (no key needed for reads).
-3. **Get Dictionary Value** → `walk` from the result.
-4. **If** that value **is** `true` → **Stop and Output Nothing** (you've walked — stay quiet).
-   **Otherwise** → **Show Notification** → e.g. *"No walk yet — a short one still counts."*
+Tap **▶ (Play)** to run. iOS will ask **"Allow Stride Sync to read Steps / Distance?"** →
+**Allow**. Open the dashboard — Activity and Daily walk fill within ~60s.
 
-**Automations:** 2–3 **Time of Day** runs through your afternoon/evening (e.g. **1pm, 4pm,
-6:30pm**) → Run **Stride Nudge** → **Run Immediately**, **Notify When Run = ON** (you *want*
-the banner here). The shortcut self-silences on days you've already walked, so it never nags.
+**Sleep (optional, do it after the rest works):** sleep is the fiddly one in Shortcuts. Add
+before action 10: **Find Health Samples** → type **Sleep Analysis** → **Add Filter** →
+**Start Date** → **is in the last** `1` `days` → **Calculate Statistics** → **Sum** →
+**Calculate** *that* **÷ 3600** → **Set Variable Sleep**. Then add the `sleep` row in action
+10. If it misbehaves, leave sleep out — the dashboard just shows sleep as blank, which is fine.
 
-*(iPad note: alerts live on the phone — it's always with you. The iPad is the glance display
-and already shows the state.)*
+**Make it run by itself, silently:**
+- Shortcuts → tab **Automation** → **＋** → **Create Personal Automation**.
+- **App** or **Time of Day**? Pick **Time of Day** → e.g. **9:00 am** → Next.
+- **Run Immediately**, and turn **Notify When Run** **OFF** → choose **Run Shortcut → Stride
+  Sync**.
+- Repeat to add **2:00 pm** and **8:00 pm**. Also add a **When I unlock iPhone** one the same
+  way. Now it syncs through the day with no banners.
 
 ---
 
-## Optional A — gym auto-detect by location (no chore)
+## Shortcut 2 — "Stride Backfill" (one run, fills your history)
 
-So gym sessions log themselves when you're at PureGym Maidenhead ≥20 min. Full recipe is in
-**SETUP.md → Step 4** (two automations: Arrive saves the time, Leave logs a `gymLog` entry if
-you stayed ≥20 min — no key needed for that one). Until you set it up, the dashboard's
-**"Log a session today"** button is the one-tap fallback and already syncs.
+New shortcut → **Stride Backfill**:
 
-## Optional B — weekly recap nudge
+**1. Number** → set to `90` (days back).
 
-New shortcut → **Stride Recap** → just **Show Notification** *"Your Stride week's in — take a
-look."* → Automation: **Time of Day**, **Sunday 6pm**, Notify ON. (The dashboard already shows
-the full recap when you open it.)
+**2. Repeat** → "Repeat **Number** times" (insert the Number from action 1, or just type 90).
+Everything below goes **inside** the Repeat block, above **End Repeat**:
+
+- **Format Date**: **Date** → **Current Date**; format **Custom** `yyyy-MM-dd`. *(we adjust it
+  next)* — actually do the adjust first:
+- **Adjust Date**: "Adjust **Date** by **Add** ..." → **Date** = **Current Date**; change
+  **Add** → **Subtract**; amount = *Insert "Repeat Index"*; unit **Days**. → **Set Variable Day**.
+- **Format Date**: **Date** = *Insert "Day"*; format **Custom** `yyyy-MM-dd` → **Set Variable DayKey**.
+- **Find Health Samples** Steps → **Add Filter** **Start Date** **is** *Insert "Day"* →
+  **Calculate Statistics Sum** → **Set Variable Steps**.
+- **Find Health Samples** Walking + Running Distance → filter **Start Date is** *Insert "Day"*
+  → **Calculate Statistics Sum** → **Set Variable Dist** (÷1000 if metres).
+- **If** *Insert "Dist"* **is greater than** `1.2` → **Text** `true`; **Otherwise** **Text**
+  `false` → **End If** → **Set Variable Walk**.
+- **Get Contents of URL**: `…/stride/days/` *Insert "DayKey"* `.json?auth=KEY` → **PUT** →
+  **JSON** → fields: Number `steps`=Steps, Number `dist`=Dist, Text `walk`=Walk.
+- **Wait** → `0.3` seconds.
+
+**3. After End Repeat:** **Format Date** Current Date **ISO 8601** → **Get Contents of URL**
+`…/stride/updated.json?auth=KEY` → **PUT** → **Text** = that ISO date. (This makes the
+dashboard pull everything in.)
+
+Run it once with **▶**. 90 days takes a minute or two.
 
 ---
 
-## You're live when…
+## Shortcut 3 — "Stride Nudge" (the walk reminders)
 
-- Stride Sync has run once → today's Activity / Sleep / Daily-walk fill in.
-- Backfill has run → the trends, streaks and monthly views populate.
-- Nudge automations are on → you get a gentle reminder only on days you haven't walked.
+New shortcut → **Stride Nudge**:
 
-Anything snags on a step, tell me which action and I'll talk you through it.
+**1. Format Date** → Current Date → **Custom** `yyyy-MM-dd` → **Set Variable DayKey**.
+**2. Get Contents of URL** → `…/stride/days/` *Insert "DayKey"* `.json` → **Method GET** (no key
+needed; this is a read).
+**3. Get Dictionary Value** → "Get **Value** for **walk** in **Contents of URL**" (tap **Key** →
+type `walk`; input = the previous result).
+**4. If** that **Dictionary Value** **is** `true` → leave the If branch empty. Tap
+**Otherwise** → **Show Notification** → text: `No walk yet — a short one still counts.`
+
+**Automations:** Automation tab → **＋** → **Time of Day** → e.g. **1:00 pm** → **Run
+Immediately**, **Notify When Run ON** → Run **Stride Nudge**. Add **4:00 pm** and **6:30 pm**
+the same way. On days you've already walked it stays silent, so it never nags.
+
+---
+
+## Optional — gym auto-detect (location)
+
+Logs gym sessions automatically at PureGym Maidenhead (≥20 min). Recipe: **SETUP.md → Step 4**.
+Until then, on the dashboard tap the **Gym** card → **Log a session today** (syncs instantly).
+
+---
+
+## You're live when
+
+- **Stride Sync** has run once → today's Activity + Daily walk fill in.
+- **Stride Backfill** has run → trends, streaks and the monthly views populate.
+- **Stride Nudge** automations are on → a gentle reminder only on un-walked days.
+
+Stuck on any single action? Tell me the shortcut name and step number and I'll describe that
+exact screen.
