@@ -1,0 +1,17 @@
+{
+  "_comment": "Stride V2 rules. At go-time, MERGE the v2 block into the existing V1 ruleset (do not replace V1). V1's keyless /stride paths stay exactly as they are in ACTIVATE.md Step 0.",
+  "rules": {
+    "stride": {
+      ".read": true,
+      "days":    { ".write": true },
+      "updated": { ".write": true },
+      "stretch": { ".write": true },
+      "gymLog":  { "$id": { ".write": "!data.exists() || auth !== null", ".validate": "newData.isString() && newData.val().length <= 40" } }
+    },
+    "v2": {
+      "_comment": "Reads open (data is anonymous numbers; the page is keyless). Writes require auth, so only the service-account cron can write — nobody can inject fake health data.",
+      ".read": true,
+      ".write": "auth !== null"
+    }
+  }
+}

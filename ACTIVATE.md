@@ -1,5 +1,9 @@
 # Activate Stride — the simple version
 
+> This is **V1** (the current app: Apple Health → Shortcuts → Firebase). The planned Oura
+> background backend is **V2** and lives in `docs/VERSIONS.md` + `docs/v2-oura-backend.md` —
+> dormant until the ring arrives. This guide is V1 only.
+
 iOS only lets the **Shortcuts** app read Health, so one small shortcut sends your numbers to
 the dashboard. The shortcut just reads two Health totals and posts them — **no key, no date
 stamp, no walk logic.** The app/database do all the rest (it decides what's a real walk,
